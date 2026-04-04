@@ -1,0 +1,34 @@
+<resources>
+    <string name="app_name">LumaMeter</string>
+    <string name="camera_permission_required">Camera permission is required for live metering</string>
+    <string name="failed_to_start_camera">Failed to start camera</string>
+    <string name="status_waiting_live_meter">Waiting for live meter</string>
+    <string name="status_ae_lock_active">AE Lock active</string>
+    <string name="status_live_metering">Live metering</string>
+    <string name="open_controls">Open controls</string>
+    <string name="live_ev">Live EV %1$s</string>
+    <string name="mode_summary">%1$s | %2$s</string>
+    <string name="chip_comp">Comp</string>
+    <string name="chip_cal">Cal</string>
+    <string name="chip_luma">Luma</string>
+    <string name="chip_avg">Avg</string>
+    <string name="label_aperture">Aperture</string>
+    <string name="label_shutter">Shutter</string>
+    <string name="label_iso">ISO</string>
+    <string name="iso_value">ISO %1$d</string>
+    <string name="enable_ae_lock">Enable AE Lock</string>
+    <string name="disable_ae_lock">Disable AE Lock</string>
+    <string name="controls">Controls</string>
+    <string name="priority_mode">Priority mode</string>
+    <string name="exposure_compensation">Exposure compensation %1$s EV</string>
+    <string name="calibration_offset">Calibration offset %1$s EV</string>
+    <string name="done">Done</string>
+    <string name="permission_title">Enable camera access to start live metering</string>
+    <string name="permission_body">The app reads rear-camera luminance and suggests EV, aperture, shutter, and ISO in real time.</string>
+    <string name="grant_camera_permission">Grant camera permission</string>
+    <string name="exposure_mode_aperture_priority">Aperture Priority</string>
+    <string name="exposure_mode_shutter_priority">Shutter Priority</string>
+    <string name="metering_mode_average">Average</string>
+    <string name="metering_mode_center_weighted">Center Weighted</string>
+    <string name="metering_mode_spot">Spot</string>
+</resources>
