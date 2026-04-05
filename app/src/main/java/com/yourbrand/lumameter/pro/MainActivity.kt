@@ -4,17 +4,62 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import com.yourbrand.lumameter.pro.ui.theme.LumaMeterTheme
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import com.yourbrand.lumameter.pro.ui.meter.MeterRoute
+import com.yourbrand.lumameter.pro.ui.theme.AppThemeMode
+import com.yourbrand.lumameter.pro.ui.theme.LumaMeterTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            LumaMeterTheme {
-                MeterRoute()
+            val preferences = remember {
+                getSharedPreferences(THEME_PREFS_NAME, MODE_PRIVATE)
+            }
+            var themeMode by rememberSaveable {
+                mutableStateOf(
+                    AppThemeMode.fromStorageValue(
+                        preferences.getString(KEY_THEME_MODE, AppThemeMode.SYSTEM.storageValue),
+                    )
+                )
+            }
+            var liveMeteringEnabled by rememberSaveable {
+                mutableStateOf(
+                    preferences.getBoolean(KEY_LIVE_METERING_ENABLED, true),
+                )
+            }
+
+            LaunchedEffect(themeMode) {
+                preferences.edit()
+                    .putString(KEY_THEME_MODE, themeMode.storageValue)
+                    .apply()
+            }
+            LaunchedEffect(liveMeteringEnabled) {
+                preferences.edit()
+                    .putBoolean(KEY_LIVE_METERING_ENABLED, liveMeteringEnabled)
+                    .apply()
+            }
+
+            LumaMeterTheme(themeMode = themeMode) {
+                MeterRoute(
+                    themeMode = themeMode,
+                    onThemeModeChanged = { themeMode = it },
+                    liveMeteringEnabled = liveMeteringEnabled,
+                    onLiveMeteringEnabledChanged = { liveMeteringEnabled = it },
+                )
             }
         }
+    }
+
+    private companion object {
+        const val THEME_PREFS_NAME = "luma_meter_prefs"
+        const val KEY_THEME_MODE = "theme_mode"
+        const val KEY_LIVE_METERING_ENABLED = "live_metering_enabled"
     }
 }

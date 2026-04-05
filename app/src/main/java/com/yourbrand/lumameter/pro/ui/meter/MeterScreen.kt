@@ -3,48 +3,75 @@ package com.yourbrand.lumameter.pro.ui.meter
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Adjust
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.ArrowDropDown
+import androidx.compose.material.icons.rounded.Brightness4
+import androidx.compose.material.icons.rounded.Brightness6
+import androidx.compose.material.icons.rounded.BrightnessAuto
 import androidx.compose.material.icons.rounded.CameraAlt
-import androidx.compose.material.icons.rounded.CenterFocusStrong
-import androidx.compose.material.icons.rounded.GridOn
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.DeleteOutline
+import androidx.compose.material.icons.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.LockOpen
+import androidx.compose.material.icons.rounded.PhotoCamera
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -52,12 +79,15 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -67,20 +97,45 @@ import com.yourbrand.lumameter.pro.domain.exposure.ExposureMode
 import com.yourbrand.lumameter.pro.domain.exposure.LuminanceReading
 import com.yourbrand.lumameter.pro.domain.exposure.MeteringMode
 import com.yourbrand.lumameter.pro.domain.exposure.MeteringPoint
+import com.yourbrand.lumameter.pro.ui.components.MeterChoiceChip
+import com.yourbrand.lumameter.pro.ui.components.MeterPanel
+import com.yourbrand.lumameter.pro.ui.theme.AppThemeMode
 import com.yourbrand.lumameter.pro.viewmodel.MeterDefaults
 import com.yourbrand.lumameter.pro.viewmodel.MeterStatus
 import com.yourbrand.lumameter.pro.viewmodel.MeterUiState
 import com.yourbrand.lumameter.pro.viewmodel.MeterViewModel
 import java.util.Locale
+import kotlin.math.abs
 
+private enum class MeterPage {
+    MAIN,
+    SETTINGS,
+    APERTURE_LIBRARY,
+    SHUTTER_LIBRARY,
+}
+
+private enum class MeterSheet {
+    EXPOSURE_MODE,
+    CALIBRATION,
+    ADD_APERTURE,
+    ADD_SHUTTER,
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MeterRoute(
+    themeMode: AppThemeMode,
+    onThemeModeChanged: (AppThemeMode) -> Unit,
+    liveMeteringEnabled: Boolean,
+    onLiveMeteringEnabledChanged: (Boolean) -> Unit,
     viewModel: MeterViewModel = viewModel(),
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val permissionRequiredMessage = stringResource(R.string.camera_permission_required)
     var hasCameraPermission by remember { mutableStateOf(context.hasCameraPermission()) }
+    var currentPage by rememberSaveable { mutableStateOf(MeterPage.MAIN) }
+    var activeSheet by rememberSaveable { mutableStateOf<MeterSheet?>(null) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
@@ -91,78 +146,472 @@ fun MeterRoute(
         }
     }
 
-    MeterScreen(
-        uiState = uiState,
-        hasCameraPermission = hasCameraPermission,
-        onRequestPermission = {
-            permissionLauncher.launch(Manifest.permission.CAMERA)
+    LaunchedEffect(liveMeteringEnabled) {
+        viewModel.setLiveMeteringEnabled(liveMeteringEnabled)
+    }
+
+    BackHandler(enabled = currentPage != MeterPage.MAIN || activeSheet != null) {
+        if (activeSheet != null) {
+            activeSheet = null
+        } else {
+            currentPage = MeterPage.MAIN
+        }
+    }
+
+    activeSheet?.let { sheet ->
+        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ModalBottomSheet(
+            onDismissRequest = { activeSheet = null },
+            sheetState = sheetState,
+            containerColor = MaterialTheme.colorScheme.surface,
+            modifier = Modifier.imePadding(),
+        ) {
+            when (sheet) {
+                MeterSheet.EXPOSURE_MODE -> ExposureModeSheet(
+                    currentMode = uiState.exposureMode,
+                    onSelect = {
+                        viewModel.setExposureMode(it)
+                        activeSheet = null
+                    },
+                )
+
+                MeterSheet.CALIBRATION -> CalibrationSheet(
+                    uiState = uiState,
+                    onCalibrationChanged = viewModel::setCalibrationOffset,
+                )
+
+                MeterSheet.ADD_APERTURE -> ValueInputSheet(
+                    title = stringResource(R.string.add_aperture_value),
+                    label = stringResource(R.string.aperture_value_input),
+                    placeholder = "f/1.8",
+                    supportingText = stringResource(R.string.aperture_input_hint),
+                    invalidText = stringResource(R.string.aperture_input_invalid),
+                    duplicateText = stringResource(R.string.value_already_exists),
+                    outOfRangeText = stringResource(R.string.aperture_input_out_of_range),
+                    keyboardType = KeyboardType.Decimal,
+                    currentValues = uiState.apertureOptions,
+                    parser = ::parseApertureInput,
+                    validator = { it in 1.0..32.0 },
+                    onSubmit = {
+                        viewModel.addApertureOption(it)
+                        activeSheet = null
+                    },
+                    onDismiss = { activeSheet = null },
+                )
+
+                MeterSheet.ADD_SHUTTER -> ValueInputSheet(
+                    title = stringResource(R.string.add_shutter_value),
+                    label = stringResource(R.string.shutter_value_input),
+                    placeholder = "1/320",
+                    supportingText = stringResource(R.string.shutter_input_hint),
+                    invalidText = stringResource(R.string.shutter_input_invalid),
+                    duplicateText = stringResource(R.string.value_already_exists),
+                    outOfRangeText = stringResource(R.string.shutter_input_out_of_range),
+                    keyboardType = KeyboardType.Text,
+                    currentValues = uiState.shutterOptions,
+                    parser = ::parseShutterInput,
+                    validator = { it in MIN_SHUTTER_SECONDS..MAX_SHUTTER_SECONDS },
+                    onSubmit = {
+                        viewModel.addShutterOption(it)
+                        activeSheet = null
+                    },
+                    onDismiss = { activeSheet = null },
+                )
+            }
+        }
+    }
+
+    AnimatedContent(
+        targetState = currentPage,
+        label = "meter_page",
+        transitionSpec = {
+            if (targetState.ordinal > initialState.ordinal) {
+                slideInHorizontally { it / 4 } + fadeIn() togetherWith
+                    slideOutHorizontally { -it / 5 } + fadeOut()
+            } else {
+                slideInHorizontally { -it / 4 } + fadeIn() togetherWith
+                    slideOutHorizontally { it / 5 } + fadeOut()
+            }
         },
-        onReadingAvailable = viewModel::onFrameAnalyzed,
-        onCameraError = viewModel::onCameraError,
-        onExposureModeSelected = viewModel::setExposureMode,
-        onMeteringModeSelected = viewModel::setMeteringMode,
-        onMeteringPointChanged = viewModel::setMeteringPoint,
-        onIsoSelected = viewModel::setIso,
-        onApertureSelected = viewModel::setAperture,
-        onShutterSelected = viewModel::setShutterSeconds,
-        onCompensationChanged = viewModel::setCompensation,
-        onCalibrationChanged = viewModel::setCalibrationOffset,
-        onAeLockToggled = viewModel::toggleAeLock,
-    )
+    ) { page ->
+        when (page) {
+            MeterPage.MAIN -> MeterMainPage(
+                uiState = uiState,
+                hasCameraPermission = hasCameraPermission,
+                onRequestPermission = { permissionLauncher.launch(Manifest.permission.CAMERA) },
+                onReadingAvailable = viewModel::onFrameAnalyzed,
+                onCameraError = viewModel::onCameraError,
+                onMeteringModeSelected = viewModel::setMeteringMode,
+                onMeteringPointChanged = viewModel::setMeteringPoint,
+                onIsoSelected = viewModel::setIso,
+                onCompensationChanged = viewModel::setCompensation,
+                onAeLockToggled = viewModel::toggleAeLock,
+                onPreviewTapped = viewModel::requestManualMetering,
+                onOpenModeSheet = { activeSheet = MeterSheet.EXPOSURE_MODE },
+                onOpenCalibration = { activeSheet = MeterSheet.CALIBRATION },
+                onOpenApertureLibrary = {
+                    viewModel.setExposureMode(ExposureMode.APERTURE_PRIORITY)
+                    currentPage = MeterPage.APERTURE_LIBRARY
+                },
+                onOpenShutterLibrary = {
+                    viewModel.setExposureMode(ExposureMode.SHUTTER_PRIORITY)
+                    currentPage = MeterPage.SHUTTER_LIBRARY
+                },
+                onOpenSettings = { currentPage = MeterPage.SETTINGS },
+            )
+
+            MeterPage.SETTINGS -> SettingsPage(
+                themeMode = themeMode,
+                onThemeModeChanged = onThemeModeChanged,
+                liveMeteringEnabled = liveMeteringEnabled,
+                onLiveMeteringEnabledChanged = onLiveMeteringEnabledChanged,
+                onBack = { currentPage = MeterPage.MAIN },
+            )
+
+            MeterPage.APERTURE_LIBRARY -> ValueLibraryPage(
+                title = stringResource(R.string.aperture_library_title),
+                description = stringResource(R.string.aperture_library_description),
+                values = uiState.apertureOptions,
+                selectedValue = uiState.selectedAperture,
+                addButtonLabel = stringResource(R.string.add_aperture_value),
+                onBack = { currentPage = MeterPage.MAIN },
+                onSelect = {
+                    viewModel.setExposureMode(ExposureMode.APERTURE_PRIORITY)
+                    viewModel.setAperture(it)
+                    currentPage = MeterPage.MAIN
+                },
+                onDelete = viewModel::removeApertureOption,
+                onAdd = { activeSheet = MeterSheet.ADD_APERTURE },
+                canDelete = { candidate ->
+                    MeterDefaults.apertureValues.none { valuesEqual(it, candidate) }
+                },
+                valueFormatter = ::formatAperture,
+            )
+
+            MeterPage.SHUTTER_LIBRARY -> ValueLibraryPage(
+                title = stringResource(R.string.shutter_library_title),
+                description = stringResource(R.string.shutter_library_description),
+                values = uiState.shutterOptions,
+                selectedValue = uiState.selectedShutterSeconds,
+                addButtonLabel = stringResource(R.string.add_shutter_value),
+                onBack = { currentPage = MeterPage.MAIN },
+                onSelect = {
+                    viewModel.setExposureMode(ExposureMode.SHUTTER_PRIORITY)
+                    viewModel.setShutterSeconds(it)
+                    currentPage = MeterPage.MAIN
+                },
+                onDelete = viewModel::removeShutterOption,
+                onAdd = { activeSheet = MeterSheet.ADD_SHUTTER },
+                canDelete = { candidate ->
+                    MeterDefaults.shutterValues.none { valuesEqual(it, candidate) }
+                },
+                valueFormatter = ::formatShutter,
+            )
+        }
+    }
 }
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-private fun MeterScreen(
+private fun MeterMainPage(
     uiState: MeterUiState,
     hasCameraPermission: Boolean,
     onRequestPermission: () -> Unit,
     onReadingAvailable: (LuminanceReading) -> Unit,
     onCameraError: (String) -> Unit,
-    onExposureModeSelected: (ExposureMode) -> Unit,
     onMeteringModeSelected: (MeteringMode) -> Unit,
     onMeteringPointChanged: (MeteringPoint) -> Unit,
     onIsoSelected: (Int) -> Unit,
-    onApertureSelected: (Double) -> Unit,
-    onShutterSelected: (Double) -> Unit,
     onCompensationChanged: (Float) -> Unit,
-    onCalibrationChanged: (Float) -> Unit,
     onAeLockToggled: () -> Unit,
+    onPreviewTapped: () -> Unit,
+    onOpenModeSheet: () -> Unit,
+    onOpenCalibration: () -> Unit,
+    onOpenApertureLibrary: () -> Unit,
+    onOpenShutterLibrary: () -> Unit,
+    onOpenSettings: () -> Unit,
 ) {
-    var showControls by rememberSaveable { mutableStateOf(false) }
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-
-    if (showControls) {
-        ModalBottomSheet(
-            onDismissRequest = { showControls = false },
-            sheetState = sheetState,
-            containerColor = MaterialTheme.colorScheme.surface,
-        ) {
-            MeterControlSheet(
-                uiState = uiState,
-                onExposureModeSelected = onExposureModeSelected,
-                onIsoSelected = onIsoSelected,
-                onApertureSelected = onApertureSelected,
-                onShutterSelected = onShutterSelected,
-                onCompensationChanged = onCompensationChanged,
-                onCalibrationChanged = onCalibrationChanged,
-                onClose = { showControls = false },
-            )
-        }
-    }
-
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background),
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(
+                        MaterialTheme.colorScheme.background,
+                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+                        MaterialTheme.colorScheme.background,
+                    ),
+                )
+            ),
     ) {
-        if (hasCameraPermission) {
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .safeDrawingPadding(),
+            contentPadding = PaddingValues(
+                start = 16.dp,
+                top = 12.dp,
+                end = 16.dp,
+                bottom = 20.dp,
+            ),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            item {
+                MainHeader(
+                    uiState = uiState,
+                    onOpenModeSheet = onOpenModeSheet,
+                    onOpenSettings = onOpenSettings,
+                )
+            }
+
+            if (hasCameraPermission) {
+                item {
+                    MeterPanel(
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 18.dp, vertical = 18.dp),
+                            verticalArrangement = Arrangement.spacedBy(16.dp),
+                        ) {
+                            StatusRow(uiState = uiState)
+                            MeteringTabs(
+                                currentMode = uiState.meteringMode,
+                                onMeteringModeSelected = onMeteringModeSelected,
+                            )
+                            PreviewCard(
+                                uiState = uiState,
+                                onReadingAvailable = onReadingAvailable,
+                                onCameraError = onCameraError,
+                                onMeteringPointChanged = onMeteringPointChanged,
+                                onPreviewTapped = onPreviewTapped,
+                            )
+                            ExposureSummaryRow(uiState = uiState)
+                            ExposureAdjustmentRow(
+                                uiState = uiState,
+                                onAeLockToggled = onAeLockToggled,
+                                onCompensationChanged = onCompensationChanged,
+                                onOpenCalibration = onOpenCalibration,
+                            )
+                            IsoSelector(
+                                values = uiState.isoOptions,
+                                selectedValue = uiState.selectedIso,
+                                onIsoSelected = onIsoSelected,
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            ) {
+                                ParameterModeButton(
+                                    modifier = Modifier.weight(1f),
+                                    label = stringResource(R.string.label_shutter),
+                                    value = formatShutter(uiState.selectedShutterSeconds),
+                                    active = uiState.exposureMode == ExposureMode.SHUTTER_PRIORITY,
+                                    onClick = onOpenShutterLibrary,
+                                )
+                                ParameterModeButton(
+                                    modifier = Modifier.weight(1f),
+                                    label = stringResource(R.string.label_aperture),
+                                    value = formatAperture(uiState.selectedAperture),
+                                    active = uiState.exposureMode == ExposureMode.APERTURE_PRIORITY,
+                                    onClick = onOpenApertureLibrary,
+                                )
+                            }
+                        }
+                    }
+                }
+            } else {
+                item {
+                    PermissionEmptyState(
+                        modifier = Modifier.fillMaxWidth(),
+                        onRequestPermission = onRequestPermission,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MainHeader(
+    uiState: MeterUiState,
+    onOpenModeSheet: () -> Unit,
+    onOpenSettings: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        MeterChoiceChip(
+            label = exposureModeLabel(uiState.exposureMode),
+            selected = true,
+            trailingIcon = Icons.Rounded.ArrowDropDown,
+            onClick = onOpenModeSheet,
+        )
+
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+                tonalElevation = 3.dp,
+            ) {
+                Column(
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                    horizontalAlignment = Alignment.End,
+                ) {
+                    Text(
+                        text = stringResource(R.string.live_ev_short),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        text = formatEv(uiState.exposureResult.sceneEv100),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+            }
+
+            Surface(
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+                tonalElevation = 3.dp,
+            ) {
+                IconButton(onClick = onOpenSettings) {
+                    Icon(
+                        imageVector = Icons.Rounded.Settings,
+                        contentDescription = stringResource(R.string.open_settings),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun StatusRow(
+    uiState: MeterUiState,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = meterStatusLabel(uiState),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+
+        val reading = uiState.liveReading
+        if (reading != null) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                MeterChoiceChip(label = "L ${formatLuma(reading.meteredLuma)}")
+                MeterChoiceChip(label = "AVG ${formatLuma(reading.averageLuma)}")
+            }
+        }
+    }
+}
+
+@Composable
+private fun MeteringTabs(
+    currentMode: MeteringMode,
+    onMeteringModeSelected: (MeteringMode) -> Unit,
+) {
+    Surface(
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.42f),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            MeteringMode.entries.forEach { mode ->
+                val selected = currentMode == mode
+                Surface(
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(14.dp),
+                    color = if (selected) {
+                        MaterialTheme.colorScheme.surface
+                    } else {
+                        Color.Transparent
+                    },
+                    tonalElevation = if (selected) 3.dp else 0.dp,
+                    onClick = { onMeteringModeSelected(mode) },
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp, vertical = 10.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        Text(
+                            text = meteringModeLabel(mode),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = if (selected) {
+                                MaterialTheme.colorScheme.onSurface
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                            maxLines = 1,
+                        )
+                        Box(
+                            modifier = Modifier
+                                .height(2.dp)
+                                .fillMaxWidth(0.45f)
+                                .background(
+                                    color = if (selected) {
+                                        MaterialTheme.colorScheme.primary
+                                    } else {
+                                        Color.Transparent
+                                    },
+                                    shape = CircleShape,
+                                ),
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PreviewCard(
+    uiState: MeterUiState,
+    onReadingAvailable: (LuminanceReading) -> Unit,
+    onCameraError: (String) -> Unit,
+    onMeteringPointChanged: (MeteringPoint) -> Unit,
+    onPreviewTapped: () -> Unit,
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(24.dp)),
+        shape = RoundedCornerShape(24.dp),
+        color = Color.Black.copy(alpha = 0.08f),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(4f / 3f),
+        ) {
             MeterCameraPreview(
                 modifier = Modifier.fillMaxSize(),
                 meteringMode = uiState.meteringMode,
                 meteringPoint = uiState.meteringPoint,
                 isAeLocked = uiState.isAeLocked,
                 onMeteringPointChanged = onMeteringPointChanged,
+                onPreviewTapped = onPreviewTapped,
                 onReadingAvailable = onReadingAvailable,
                 onCameraError = onCameraError,
             )
@@ -173,250 +622,263 @@ private fun MeterScreen(
                     .background(
                         Brush.verticalGradient(
                             colors = listOf(
-                                Color.Black.copy(alpha = 0.42f),
+                                Color.Black.copy(alpha = 0.18f),
                                 Color.Transparent,
-                                Color.Black.copy(alpha = 0.56f),
+                                Color.Black.copy(alpha = 0.42f),
                             ),
                         )
                     ),
             )
 
-            Column(
+            Text(
+                text = if (uiState.isLiveMeteringEnabled) {
+                    stringResource(R.string.tap_to_reposition_meter)
+                } else {
+                    stringResource(R.string.tap_to_meter_once)
+                },
                 modifier = Modifier
-                    .fillMaxSize()
-                    .safeDrawingPadding()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                MeterHeader(
-                    statusLabel = meterStatusLabel(uiState),
-                    onOpenControls = { showControls = true },
-                )
-                MeterHeroCard(uiState = uiState)
-                Spacer(modifier = Modifier.weight(1f))
-                MeterBottomPanel(
-                    uiState = uiState,
-                    onExposureModeSelected = onExposureModeSelected,
-                    onMeteringModeSelected = onMeteringModeSelected,
-                    onAeLockToggled = onAeLockToggled,
-                    onOpenControls = { showControls = true },
-                )
-            }
-        } else {
-            PermissionEmptyState(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .safeDrawingPadding()
-                    .padding(24.dp),
-                onRequestPermission = onRequestPermission,
+                    .align(Alignment.BottomStart)
+                    .padding(14.dp),
+                style = MaterialTheme.typography.labelLarge,
+                color = Color.White.copy(alpha = 0.92f),
             )
         }
     }
 }
 
 @Composable
-private fun MeterHeader(
-    statusLabel: String,
-    onOpenControls: () -> Unit,
+private fun ExposureSummaryRow(
+    uiState: MeterUiState,
 ) {
     Surface(
-        shape = RoundedCornerShape(28.dp),
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.82f),
-        tonalElevation = 8.dp,
         modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.surface,
+        shadowElevation = 2.dp,
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 18.dp, vertical = 14.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
+                .padding(horizontal = 8.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(
-                    text = stringResource(R.string.app_name),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                Text(
-                    text = statusLabel,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-
-            IconButton(onClick = onOpenControls) {
-                Icon(
-                    imageVector = Icons.Rounded.Tune,
-                    contentDescription = stringResource(R.string.open_controls),
-                )
-            }
+            ExposureSummaryItem(
+                modifier = Modifier.weight(1f),
+                label = stringResource(R.string.label_aperture),
+                value = formatAperture(uiState.exposureResult.aperture),
+                emphasized = uiState.exposureMode == ExposureMode.APERTURE_PRIORITY,
+            )
+            MetricDivider()
+            ExposureSummaryItem(
+                modifier = Modifier.weight(1f),
+                label = stringResource(R.string.label_shutter),
+                value = formatShutter(uiState.exposureResult.shutterSeconds),
+                emphasized = uiState.exposureMode == ExposureMode.SHUTTER_PRIORITY,
+            )
+            MetricDivider()
+            ExposureSummaryItem(
+                modifier = Modifier.weight(1f),
+                label = stringResource(R.string.label_iso),
+                value = stringResource(R.string.iso_inline_value, uiState.exposureResult.iso),
+                emphasized = true,
+            )
         }
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun MeterHeroCard(
-    uiState: MeterUiState,
+private fun MetricDivider() {
+    Box(
+        modifier = Modifier
+            .width(1.dp)
+            .height(28.dp)
+            .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.16f)),
+    )
+}
+
+@Composable
+private fun ExposureSummaryItem(
+    label: String,
+    value: String,
+    emphasized: Boolean,
+    modifier: Modifier = Modifier,
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.82f),
-        ),
-        shape = RoundedCornerShape(32.dp),
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            Text(
-                text = stringResource(R.string.live_ev, formatEv(uiState.exposureResult.sceneEv100)),
-                style = MaterialTheme.typography.headlineLarge,
-            )
-            Text(
-                text = stringResource(
-                    R.string.mode_summary,
-                    meteringModeLabel(uiState.meteringMode),
-                    exposureModeLabel(uiState.exposureMode),
-                ),
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.primary,
-            )
-            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                StatusChip(
-                    label = stringResource(R.string.chip_comp),
-                    value = "${formatSignedEv(uiState.compensationEv)} EV",
-                )
-                StatusChip(
-                    label = stringResource(R.string.chip_cal),
-                    value = "${formatSignedEv(uiState.calibrationOffsetEv)} EV",
-                )
-                StatusChip(
-                    label = stringResource(R.string.chip_luma),
-                    value = formatLuma(uiState.liveReading?.meteredLuma ?: 0.0),
-                )
-                StatusChip(
-                    label = stringResource(R.string.chip_avg),
-                    value = formatLuma(uiState.liveReading?.averageLuma ?: 0.0),
-                )
-            }
-        }
+        Text(
+            text = value,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = if (emphasized) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            },
+        )
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun MeterBottomPanel(
+private fun ExposureAdjustmentRow(
     uiState: MeterUiState,
-    onExposureModeSelected: (ExposureMode) -> Unit,
-    onMeteringModeSelected: (MeteringMode) -> Unit,
     onAeLockToggled: () -> Unit,
-    onOpenControls: () -> Unit,
+    onCompensationChanged: (Float) -> Unit,
+    onOpenCalibration: () -> Unit,
 ) {
-    Card(
+    Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(32.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
-        ),
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.62f),
     ) {
-        Column(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+                .padding(horizontal = 8.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            Surface(
+                modifier = Modifier.weight(0.32f),
+                shape = RoundedCornerShape(16.dp),
+                color = if (uiState.isAeLocked) {
+                    MaterialTheme.colorScheme.primaryContainer
+                } else {
+                    MaterialTheme.colorScheme.surface.copy(alpha = 0.72f)
+                },
+                onClick = onAeLockToggled,
             ) {
-                MetricTile(
-                    modifier = Modifier.weight(1f),
-                    label = stringResource(R.string.label_aperture),
-                    value = formatAperture(uiState.exposureResult.aperture),
-                )
-                MetricTile(
-                    modifier = Modifier.weight(1f),
-                    label = stringResource(R.string.label_shutter),
-                    value = formatShutter(uiState.exposureResult.shutterSeconds),
-                )
-                MetricTile(
-                    modifier = Modifier.weight(1f),
-                    label = stringResource(R.string.label_iso),
-                    value = stringResource(R.string.iso_value, uiState.exposureResult.iso),
-                )
-            }
-
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                ExposureMode.entries.forEach { mode ->
-                    FilterChip(
-                        selected = uiState.exposureMode == mode,
-                        onClick = { onExposureModeSelected(mode) },
-                        label = { Text(exposureModeLabel(mode)) },
+                Column(
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
+                    horizontalAlignment = Alignment.Start,
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Icon(
+                        imageVector = if (uiState.isAeLocked) Icons.Rounded.Lock else Icons.Rounded.LockOpen,
+                        contentDescription = null,
+                        tint = if (uiState.isAeLocked) {
+                            MaterialTheme.colorScheme.onPrimaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
                     )
-                }
-                MeteringMode.entries.forEach { mode ->
-                    FilterChip(
-                        selected = uiState.meteringMode == mode,
-                        onClick = { onMeteringModeSelected(mode) },
-                        label = { Text(meteringModeLabel(mode)) },
-                        leadingIcon = {
-                            Icon(
-                                imageVector = when (mode) {
-                                    MeteringMode.AVERAGE -> Icons.Rounded.GridOn
-                                    MeteringMode.CENTER_WEIGHTED -> Icons.Rounded.Adjust
-                                    MeteringMode.SPOT -> Icons.Rounded.CenterFocusStrong
-                                },
-                                contentDescription = null,
-                            )
+                    Text(
+                        text = stringResource(R.string.ae_lock_label),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = if (uiState.isAeLocked) {
+                            MaterialTheme.colorScheme.onPrimaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                    )
+                    Text(
+                        text = if (uiState.isAeLocked) {
+                            stringResource(R.string.state_on)
+                        } else {
+                            stringResource(R.string.state_off)
+                        },
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (uiState.isAeLocked) {
+                            MaterialTheme.colorScheme.onPrimaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.onSurface
                         },
                     )
                 }
             }
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                FilledTonalButton(
-                    modifier = Modifier.weight(1f),
-                    onClick = onAeLockToggled,
-                ) {
-                    Icon(
-                        imageVector = if (uiState.isAeLocked) Icons.Rounded.Lock else Icons.Rounded.LockOpen,
-                        contentDescription = null,
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        if (uiState.isAeLocked) {
-                            stringResource(R.string.disable_ae_lock)
-                        } else {
-                            stringResource(R.string.enable_ae_lock)
-                        }
-                    )
-                }
+            Box(
+                modifier = Modifier
+                    .width(1.dp)
+                    .height(72.dp)
+                    .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.16f)),
+            )
 
-                OutlinedButton(
-                    modifier = Modifier.weight(1f),
-                    onClick = onOpenControls,
+            Column(
+                modifier = Modifier
+                    .weight(0.68f)
+                    .padding(end = 6.dp, top = 6.dp, bottom = 6.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Tune,
-                        contentDescription = null,
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                    ) {
+                        Text(
+                            text = stringResource(R.string.exposure_compensation_tight),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                        )
+                        Text(
+                            text = formatSignedEv(uiState.compensationEv),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                    TextButton(
+                        onClick = onOpenCalibration,
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Tune,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = stringResource(R.string.calibration_short),
+                            maxLines = 1,
+                        )
+                    }
+                }
+                Slider(
+                    value = uiState.compensationEv.toFloat(),
+                    onValueChange = onCompensationChanged,
+                    valueRange = -3f..3f,
+                    steps = 19,
+                    colors = SliderDefaults.colors(
+                        thumbColor = MaterialTheme.colorScheme.primary,
+                        activeTrackColor = MaterialTheme.colorScheme.primary,
+                        inactiveTrackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+                    ),
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Text(
+                        text = "-3",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(stringResource(R.string.controls))
+                    Text(
+                        text = stringResource(
+                            R.string.calibration_chip,
+                            formatSignedEv(uiState.calibrationOffsetEv),
+                        ),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                    )
+                    Text(
+                        text = "+3",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
         }
@@ -424,194 +886,728 @@ private fun MeterBottomPanel(
 }
 
 @Composable
-private fun MetricTile(
-    modifier: Modifier = Modifier,
-    label: String,
-    value: String,
+private fun IsoSelector(
+    values: List<Int>,
+    selectedValue: Int,
+    onIsoSelected: (Int) -> Unit,
 ) {
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(22.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
-    ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                text = value,
-                style = MaterialTheme.typography.headlineMedium,
-            )
-        }
-    }
-}
-
-@Composable
-private fun StatusChip(
-    label: String,
-    value: String,
-) {
-    Surface(
-        shape = RoundedCornerShape(18.dp),
-        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.65f),
-    ) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = label,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.78f),
+                text = stringResource(R.string.label_iso),
+                style = MaterialTheme.typography.titleMedium,
             )
             Text(
-                text = value,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium,
+                text = stringResource(R.string.iso_value, selectedValue),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary,
+            )
+        }
+        Surface(
+            shape = RoundedCornerShape(18.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.42f),
+        ) {
+            LazyRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                items(values) { iso ->
+                    MeterChoiceChip(
+                        label = iso.toString(),
+                        selected = selectedValue == iso,
+                        onClick = { onIsoSelected(iso) },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ParameterModeButton(
+    label: String,
+    value: String,
+    active: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(18.dp),
+        color = if (active) {
+            MaterialTheme.colorScheme.primaryContainer
+        } else {
+            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.48f)
+        },
+        onClick = onClick,
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (active) {
+                        MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.82f)
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                    maxLines = 1,
+                )
+                Text(
+                    text = value,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (active) {
+                        MaterialTheme.colorScheme.onPrimaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.onSurface
+                    },
+                    maxLines = 1,
+                )
+            }
+            Icon(
+                imageVector = Icons.Rounded.KeyboardArrowRight,
+                contentDescription = null,
+                tint = if (active) {
+                    MaterialTheme.colorScheme.onPrimaryContainer
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
             )
         }
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun MeterControlSheet(
-    uiState: MeterUiState,
-    onExposureModeSelected: (ExposureMode) -> Unit,
-    onIsoSelected: (Int) -> Unit,
-    onApertureSelected: (Double) -> Unit,
-    onShutterSelected: (Double) -> Unit,
-    onCompensationChanged: (Float) -> Unit,
-    onCalibrationChanged: (Float) -> Unit,
-    onClose: () -> Unit,
+private fun SettingsPage(
+    themeMode: AppThemeMode,
+    onThemeModeChanged: (AppThemeMode) -> Unit,
+    liveMeteringEnabled: Boolean,
+    onLiveMeteringEnabledChanged: (Boolean) -> Unit,
+    onBack: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(
+                        MaterialTheme.colorScheme.background,
+                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        MaterialTheme.colorScheme.background,
+                    ),
+                )
+            ),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .safeDrawingPadding()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            PageHeader(
+                title = stringResource(R.string.settings_title),
+                onBack = onBack,
+            )
+
+            MeterPanel(
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 18.dp, vertical = 18.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    Text(
+                        text = stringResource(R.string.settings_metering_title),
+                        style = MaterialTheme.typography.titleLarge,
+                    )
+                    SettingsToggleCard(
+                        title = stringResource(R.string.settings_live_metering),
+                        subtitle = if (liveMeteringEnabled) {
+                            stringResource(R.string.settings_live_metering_description)
+                        } else {
+                            stringResource(R.string.settings_single_metering_description)
+                        },
+                        checked = liveMeteringEnabled,
+                        onCheckedChange = onLiveMeteringEnabledChanged,
+                    )
+
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = stringResource(R.string.settings_theme_title),
+                        style = MaterialTheme.typography.titleLarge,
+                    )
+                    Text(
+                        text = stringResource(R.string.settings_theme_description),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+
+                    ThemeOptionCard(
+                        title = stringResource(R.string.theme_system),
+                        subtitle = stringResource(R.string.theme_system_description),
+                        icon = Icons.Rounded.BrightnessAuto,
+                        selected = themeMode == AppThemeMode.SYSTEM,
+                        onClick = { onThemeModeChanged(AppThemeMode.SYSTEM) },
+                    )
+                    ThemeOptionCard(
+                        title = stringResource(R.string.theme_light),
+                        subtitle = stringResource(R.string.theme_light_description),
+                        icon = Icons.Rounded.Brightness6,
+                        selected = themeMode == AppThemeMode.LIGHT,
+                        onClick = { onThemeModeChanged(AppThemeMode.LIGHT) },
+                    )
+                    ThemeOptionCard(
+                        title = stringResource(R.string.theme_dark),
+                        subtitle = stringResource(R.string.theme_dark_description),
+                        icon = Icons.Rounded.Brightness4,
+                        selected = themeMode == AppThemeMode.DARK,
+                        onClick = { onThemeModeChanged(AppThemeMode.DARK) },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettingsToggleCard(
+    title: String,
+    subtitle: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    Surface(
+        shape = RoundedCornerShape(22.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        onClick = { onCheckedChange(!checked) },
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Surface(
+                shape = CircleShape,
+                color = if (checked) {
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                } else {
+                    MaterialTheme.colorScheme.background
+                },
+            ) {
+                Icon(
+                    modifier = Modifier.padding(12.dp),
+                    imageVector = if (checked) Icons.Rounded.PhotoCamera else Icons.Rounded.CameraAlt,
+                    contentDescription = null,
+                    tint = if (checked) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                )
+            }
+
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            Switch(
+                checked = checked,
+                onCheckedChange = onCheckedChange,
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = MaterialTheme.colorScheme.primary,
+                    checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
+                ),
+            )
+        }
+    }
+}
+
+@Composable
+private fun ThemeOptionCard(
+    title: String,
+    subtitle: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    Surface(
+        shape = RoundedCornerShape(22.dp),
+        color = if (selected) {
+            MaterialTheme.colorScheme.primaryContainer
+        } else {
+            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        },
+        onClick = onClick,
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Surface(
+                shape = CircleShape,
+                color = if (selected) {
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                } else {
+                    MaterialTheme.colorScheme.background
+                },
+            ) {
+                Icon(
+                    modifier = Modifier.padding(12.dp),
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = if (selected) {
+                        MaterialTheme.colorScheme.onPrimaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                )
+            }
+
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (selected) {
+                        MaterialTheme.colorScheme.onPrimaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.onSurface
+                    },
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (selected) {
+                        MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.82f)
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                )
+            }
+
+            if (selected) {
+                Icon(
+                    imageVector = Icons.Rounded.Check,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ValueLibraryPage(
+    title: String,
+    description: String,
+    values: List<Double>,
+    selectedValue: Double,
+    addButtonLabel: String,
+    onBack: () -> Unit,
+    onSelect: (Double) -> Unit,
+    onDelete: (Double) -> Unit,
+    onAdd: () -> Unit,
+    canDelete: (Double) -> Boolean,
+    valueFormatter: (Double) -> String,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(
+                        MaterialTheme.colorScheme.background,
+                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                        MaterialTheme.colorScheme.background,
+                    ),
+                )
+            ),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .safeDrawingPadding()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            PageHeader(
+                title = title,
+                onBack = onBack,
+            )
+
+            MeterPanel(
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 18.dp, vertical = 18.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    Text(
+                        text = description,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(420.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        items(values) { value ->
+                            ValueRow(
+                                value = valueFormatter(value),
+                                selected = valuesEqual(value, selectedValue),
+                                isCustom = canDelete(value),
+                                onClick = { onSelect(value) },
+                                onDelete = if (canDelete(value)) {
+                                    { onDelete(value) }
+                                } else {
+                                    null
+                                },
+                            )
+                        }
+                    }
+
+                    Button(
+                        onClick = onAdd,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                        ),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Add,
+                            contentDescription = null,
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(addButtonLabel)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ValueRow(
+    value: String,
+    selected: Boolean,
+    isCustom: Boolean,
+    onClick: () -> Unit,
+    onDelete: (() -> Unit)?,
+) {
+    Surface(
+        shape = RoundedCornerShape(20.dp),
+        color = if (selected) {
+            MaterialTheme.colorScheme.primaryContainer
+        } else {
+            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.46f)
+        },
+        onClick = onClick,
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    text = value,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (selected) {
+                        MaterialTheme.colorScheme.onPrimaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.onSurface
+                    },
+                )
+                Text(
+                    text = if (isCustom) {
+                        stringResource(R.string.custom_value)
+                    } else {
+                        stringResource(R.string.default_value)
+                    },
+                    style = MaterialTheme.typography.labelLarge,
+                    color = if (selected) {
+                        MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                )
+            }
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (selected) {
+                    Icon(
+                        imageVector = Icons.Rounded.Check,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    )
+                }
+                if (onDelete != null) {
+                    IconButton(onClick = onDelete) {
+                        Icon(
+                            imageVector = Icons.Rounded.DeleteOutline,
+                            contentDescription = stringResource(R.string.delete_custom_value),
+                            tint = if (selected) {
+                                MaterialTheme.colorScheme.onPrimaryContainer
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ExposureModeSheet(
+    currentMode: ExposureMode,
+    onSelect: (ExposureMode) -> Unit,
 ) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp),
+        verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
         Text(
-            text = stringResource(R.string.controls),
+            text = stringResource(R.string.priority_mode),
             style = MaterialTheme.typography.titleLarge,
         )
-
-        SettingGroup(title = stringResource(R.string.priority_mode)) {
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+        ExposureMode.entries.forEach { mode ->
+            Surface(
+                shape = RoundedCornerShape(22.dp),
+                color = if (currentMode == mode) {
+                    MaterialTheme.colorScheme.primaryContainer
+                } else {
+                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.46f)
+                },
+                onClick = { onSelect(mode) },
             ) {
-                ExposureMode.entries.forEach { mode ->
-                    FilterChip(
-                        selected = uiState.exposureMode == mode,
-                        onClick = { onExposureModeSelected(mode) },
-                        label = { Text(exposureModeLabel(mode)) },
-                    )
-                }
-            }
-        }
-
-        SettingGroup(title = stringResource(R.string.label_iso)) {
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                MeterDefaults.isoValues.forEach { iso ->
-                    FilterChip(
-                        selected = uiState.selectedIso == iso,
-                        onClick = { onIsoSelected(iso) },
-                        label = { Text(stringResource(R.string.iso_value, iso)) },
-                    )
-                }
-            }
-        }
-
-        if (uiState.exposureMode == ExposureMode.APERTURE_PRIORITY) {
-            SettingGroup(title = stringResource(R.string.label_aperture)) {
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    MeterDefaults.apertureValues.forEach { aperture ->
-                        FilterChip(
-                            selected = uiState.selectedAperture == aperture,
-                            onClick = { onApertureSelected(aperture) },
-                            label = { Text(formatAperture(aperture)) },
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(
+                            text = exposureModeLabel(mode),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Text(
+                            text = when (mode) {
+                                ExposureMode.APERTURE_PRIORITY -> stringResource(R.string.aperture_mode_description)
+                                ExposureMode.SHUTTER_PRIORITY -> stringResource(R.string.shutter_mode_description)
+                            },
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                }
-            }
-        } else {
-            SettingGroup(title = stringResource(R.string.label_shutter)) {
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    MeterDefaults.shutterValues.forEach { shutter ->
-                        FilterChip(
-                            selected = uiState.selectedShutterSeconds == shutter,
-                            onClick = { onShutterSelected(shutter) },
-                            label = { Text(formatShutter(shutter)) },
+                    if (currentMode == mode) {
+                        Icon(
+                            imageVector = Icons.Rounded.Check,
+                            contentDescription = null,
                         )
                     }
                 }
             }
         }
-
-        SettingGroup(
-            title = stringResource(
-                R.string.exposure_compensation,
-                formatSignedEv(uiState.compensationEv),
-            )
-        ) {
-            Slider(
-                value = uiState.compensationEv.toFloat(),
-                onValueChange = onCompensationChanged,
-                valueRange = -3f..3f,
-            )
-        }
-
-        SettingGroup(
-            title = stringResource(
-                R.string.calibration_offset,
-                formatSignedEv(uiState.calibrationOffsetEv),
-            )
-        ) {
-            Slider(
-                value = uiState.calibrationOffsetEv.toFloat(),
-                onValueChange = onCalibrationChanged,
-                valueRange = -2f..2f,
-            )
-        }
-
-        Button(
-            onClick = onClose,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text(stringResource(R.string.done))
-        }
-
         Spacer(modifier = Modifier.height(12.dp))
     }
 }
 
 @Composable
-private fun SettingGroup(
-    title: String,
-    content: @Composable () -> Unit,
+private fun CalibrationSheet(
+    uiState: MeterUiState,
+    onCalibrationChanged: (Float) -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
         Text(
-            text = title,
+            text = stringResource(R.string.calibration_title),
+            style = MaterialTheme.typography.titleLarge,
+        )
+        Text(
+            text = stringResource(R.string.calibration_sheet_description),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = stringResource(
+                R.string.calibration_offset,
+                formatSignedEv(uiState.calibrationOffsetEv),
+            ),
             style = MaterialTheme.typography.titleMedium,
         )
-        content()
+        Slider(
+            value = uiState.calibrationOffsetEv.toFloat(),
+            onValueChange = onCalibrationChanged,
+            valueRange = -2f..2f,
+            steps = 39,
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+    }
+}
+
+@Composable
+private fun ValueInputSheet(
+    title: String,
+    label: String,
+    placeholder: String,
+    supportingText: String,
+    invalidText: String,
+    duplicateText: String,
+    outOfRangeText: String,
+    keyboardType: KeyboardType,
+    currentValues: List<Double>,
+    parser: (String) -> Double?,
+    validator: (Double) -> Boolean,
+    onSubmit: (Double) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var input by rememberSaveable { mutableStateOf("") }
+    val parsedValue = remember(input) { parser(input) }
+    val duplicated = parsedValue?.let { parsed ->
+        currentValues.any { valuesEqual(it, parsed) }
+    } == true
+    val inRange = parsedValue?.let(validator) == true
+    val canSubmit = parsedValue != null && inRange && !duplicated
+
+    val helperText = when {
+        input.isBlank() -> supportingText
+        parsedValue == null -> invalidText
+        duplicated -> duplicateText
+        !inRange -> outOfRangeText
+        else -> supportingText
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleLarge,
+        )
+        OutlinedTextField(
+            value = input,
+            onValueChange = { input = it },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text(label) },
+            placeholder = { Text(placeholder) },
+            supportingText = { Text(helperText) },
+            isError = input.isNotBlank() && !canSubmit,
+            keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+            singleLine = true,
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            TextButton(
+                modifier = Modifier.weight(1f),
+                onClick = onDismiss,
+            ) {
+                Text(stringResource(R.string.cancel))
+            }
+            Button(
+                modifier = Modifier.weight(1f),
+                onClick = { parsedValue?.let(onSubmit) },
+                enabled = canSubmit,
+            ) {
+                Text(stringResource(R.string.add_value))
+            }
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+    }
+}
+
+@Composable
+private fun PageHeader(
+    title: String,
+    onBack: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Surface(
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+            tonalElevation = 3.dp,
+        ) {
+            IconButton(onClick = onBack) {
+                Icon(
+                    imageVector = Icons.Rounded.ArrowBack,
+                    contentDescription = stringResource(R.string.back),
+                )
+            }
+        }
+
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.SemiBold,
+        )
     }
 }
 
@@ -620,54 +1616,51 @@ private fun PermissionEmptyState(
     modifier: Modifier = Modifier,
     onRequestPermission: () -> Unit,
 ) {
-    Box(
+    Card(
         modifier = modifier,
-        contentAlignment = Alignment.Center,
+        shape = RoundedCornerShape(30.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
+        ),
     ) {
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(36.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface,
-            ),
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp, vertical = 28.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 28.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+            Surface(
+                shape = RoundedCornerShape(24.dp),
+                color = MaterialTheme.colorScheme.primaryContainer,
             ) {
-                Surface(
-                    shape = RoundedCornerShape(24.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                ) {
-                    Icon(
-                        modifier = Modifier.padding(18.dp),
-                        imageVector = Icons.Rounded.CameraAlt,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                    )
-                }
-
-                Text(
-                    text = stringResource(R.string.permission_title),
-                    style = MaterialTheme.typography.titleLarge,
-                    textAlign = TextAlign.Center,
+                Icon(
+                    modifier = Modifier
+                        .padding(18.dp)
+                        .size(28.dp),
+                    imageVector = Icons.Rounded.CameraAlt,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
                 )
-                Text(
-                    text = stringResource(R.string.permission_body),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center,
-                )
+            }
 
-                Button(
-                    onClick = onRequestPermission,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text(stringResource(R.string.grant_camera_permission))
-                }
+            Text(
+                text = stringResource(R.string.permission_title),
+                style = MaterialTheme.typography.titleLarge,
+                textAlign = TextAlign.Center,
+            )
+            Text(
+                text = stringResource(R.string.permission_body),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+            )
+
+            Button(
+                onClick = onRequestPermission,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(stringResource(R.string.grant_camera_permission))
             }
         }
     }
@@ -713,6 +1706,37 @@ private fun formatLuma(value: Double): String {
     return String.format(Locale.getDefault(), "%.0f", value)
 }
 
+private fun parseApertureInput(input: String): Double? {
+    val normalized = input.trim()
+        .lowercase(Locale.getDefault())
+        .removePrefix("f/")
+        .removePrefix("f")
+        .trim()
+    return normalized.toDoubleOrNull()
+}
+
+private fun parseShutterInput(input: String): Double? {
+    val normalized = input.trim()
+        .lowercase(Locale.getDefault())
+        .removeSuffix("s")
+        .replace(" ", "")
+
+    if (normalized.contains("/")) {
+        val parts = normalized.split("/")
+        if (parts.size != 2) {
+            return null
+        }
+        val numerator = parts[0].toDoubleOrNull()
+        val denominator = parts[1].toDoubleOrNull()
+        if (numerator == null || denominator == null || denominator == 0.0) {
+            return null
+        }
+        return numerator / denominator
+    }
+
+    return normalized.toDoubleOrNull()
+}
+
 @Composable
 private fun exposureModeLabel(mode: ExposureMode): String {
     return when (mode) {
@@ -737,9 +1761,29 @@ private fun meterStatusLabel(uiState: MeterUiState): String {
         return cameraError
     }
 
+    if (!uiState.isLiveMeteringEnabled) {
+        return when {
+            uiState.isManualMeterPending -> stringResource(R.string.status_single_metering_pending)
+            uiState.liveReading == null -> stringResource(R.string.status_single_metering_ready)
+            uiState.isAeLocked -> stringResource(R.string.status_ae_lock_active)
+            else -> stringResource(R.string.status_single_metering_done)
+        }
+    }
+
     return when (uiState.meterStatus) {
         MeterStatus.WAITING -> stringResource(R.string.status_waiting_live_meter)
         MeterStatus.LOCKED -> stringResource(R.string.status_ae_lock_active)
         MeterStatus.LIVE -> stringResource(R.string.status_live_metering)
+        MeterStatus.MANUAL -> stringResource(R.string.status_single_metering_done)
     }
 }
+
+private fun valuesEqual(
+    first: Double,
+    second: Double,
+): Boolean {
+    return abs(first - second) < 0.0001
+}
+
+private const val MIN_SHUTTER_SECONDS = 1.0 / 8000.0
+private const val MAX_SHUTTER_SECONDS = 30.0

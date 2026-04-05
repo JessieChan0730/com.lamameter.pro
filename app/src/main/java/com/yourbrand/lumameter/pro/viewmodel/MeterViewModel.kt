@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlin.math.abs
 import kotlin.math.roundToInt
 
 object MeterDefaults {
@@ -40,6 +41,7 @@ enum class MeterStatus {
     WAITING,
     LIVE,
     LOCKED,
+    MANUAL,
 }
 
 data class MeterUiState(
@@ -47,6 +49,11 @@ data class MeterUiState(
     val meteringMode: MeteringMode = MeteringMode.SPOT,
     val meteringPoint: MeteringPoint = MeteringPoint.Center,
     val isAeLocked: Boolean = false,
+    val isLiveMeteringEnabled: Boolean = true,
+    val isManualMeterPending: Boolean = false,
+    val isoOptions: List<Int> = MeterDefaults.isoValues,
+    val apertureOptions: List<Double> = MeterDefaults.apertureValues,
+    val shutterOptions: List<Double> = MeterDefaults.shutterValues,
     val selectedIso: Int = 100,
     val selectedAperture: Double = 2.8,
     val selectedShutterSeconds: Double = 1.0 / 125.0,
@@ -75,16 +82,25 @@ class MeterViewModel(
     private var lockedBaseEv100: Double? = null
 
     fun onFrameAnalyzed(reading: LuminanceReading) {
+        val currentState = _uiState.value
+        if (!currentState.isLiveMeteringEnabled && !currentState.isManualMeterPending) {
+            return
+        }
+
         val rawBaseEv100 = exposureCalculator.lumaToEv100(reading.meteredLuma)
 
         _uiState.update { current ->
             val nextState = current.copy(
                 liveReading = reading,
                 cameraError = null,
+                isManualMeterPending = false,
             )
 
             if (current.isAeLocked) {
                 buildState(nextState, lockedBaseEv100 ?: smoothedBaseEv100)
+            } else if (!current.isLiveMeteringEnabled) {
+                smoothedBaseEv100 = rawBaseEv100
+                buildState(nextState, rawBaseEv100)
             } else {
                 val nextBaseEv100 = smoothedBaseEv100
                     ?.let { previous -> previous * 0.82 + rawBaseEv100 * 0.18 }
@@ -111,6 +127,30 @@ class MeterViewModel(
         _uiState.update { current -> current.copy(meteringPoint = point) }
     }
 
+    fun setLiveMeteringEnabled(enabled: Boolean) {
+        _uiState.update { current ->
+            buildState(
+                current.copy(
+                    isLiveMeteringEnabled = enabled,
+                    isManualMeterPending = false,
+                ),
+                activeBaseEv100(),
+            )
+        }
+    }
+
+    fun requestManualMetering() {
+        _uiState.update { current ->
+            if (current.isLiveMeteringEnabled) {
+                return@update current
+            }
+            current.copy(
+                isManualMeterPending = true,
+                cameraError = null,
+            )
+        }
+    }
+
     fun setIso(iso: Int) {
         _uiState.update { current ->
             buildState(current.copy(selectedIso = iso), activeBaseEv100())
@@ -126,6 +166,96 @@ class MeterViewModel(
     fun setShutterSeconds(shutterSeconds: Double) {
         _uiState.update { current ->
             buildState(current.copy(selectedShutterSeconds = shutterSeconds), activeBaseEv100())
+        }
+    }
+
+    fun addApertureOption(aperture: Double) {
+        val sanitizedAperture = aperture.coerceIn(1.0, 32.0)
+        _uiState.update { current ->
+            if (current.apertureOptions.any { valuesEqual(it, sanitizedAperture) }) {
+                return@update current
+            }
+
+            buildState(
+                current.copy(
+                    exposureMode = ExposureMode.APERTURE_PRIORITY,
+                    apertureOptions = (current.apertureOptions + sanitizedAperture).sorted(),
+                    selectedAperture = sanitizedAperture,
+                ),
+                activeBaseEv100(),
+            )
+        }
+    }
+
+    fun removeApertureOption(aperture: Double) {
+        _uiState.update { current ->
+            if (MeterDefaults.apertureValues.any { valuesEqual(it, aperture) }) {
+                return@update current
+            }
+
+            val nextOptions = current.apertureOptions.filterNot { valuesEqual(it, aperture) }
+            if (nextOptions.isEmpty()) {
+                return@update current
+            }
+
+            val nextSelection = if (valuesEqual(current.selectedAperture, aperture)) {
+                findNearestValue(current.selectedAperture, nextOptions)
+            } else {
+                current.selectedAperture
+            }
+
+            buildState(
+                current.copy(
+                    apertureOptions = nextOptions,
+                    selectedAperture = nextSelection,
+                ),
+                activeBaseEv100(),
+            )
+        }
+    }
+
+    fun addShutterOption(shutterSeconds: Double) {
+        val sanitizedShutter = shutterSeconds.coerceIn(1.0 / 8000.0, 30.0)
+        _uiState.update { current ->
+            if (current.shutterOptions.any { valuesEqual(it, sanitizedShutter) }) {
+                return@update current
+            }
+
+            buildState(
+                current.copy(
+                    exposureMode = ExposureMode.SHUTTER_PRIORITY,
+                    shutterOptions = (current.shutterOptions + sanitizedShutter).sorted(),
+                    selectedShutterSeconds = sanitizedShutter,
+                ),
+                activeBaseEv100(),
+            )
+        }
+    }
+
+    fun removeShutterOption(shutterSeconds: Double) {
+        _uiState.update { current ->
+            if (MeterDefaults.shutterValues.any { valuesEqual(it, shutterSeconds) }) {
+                return@update current
+            }
+
+            val nextOptions = current.shutterOptions.filterNot { valuesEqual(it, shutterSeconds) }
+            if (nextOptions.isEmpty()) {
+                return@update current
+            }
+
+            val nextSelection = if (valuesEqual(current.selectedShutterSeconds, shutterSeconds)) {
+                findNearestValue(current.selectedShutterSeconds, nextOptions)
+            } else {
+                current.selectedShutterSeconds
+            }
+
+            buildState(
+                current.copy(
+                    shutterOptions = nextOptions,
+                    selectedShutterSeconds = nextSelection,
+                ),
+                activeBaseEv100(),
+            )
         }
     }
 
@@ -187,6 +317,7 @@ class MeterViewModel(
         val meterStatus = when {
             baseState.liveReading == null -> MeterStatus.WAITING
             baseState.isAeLocked -> MeterStatus.LOCKED
+            !baseState.isLiveMeteringEnabled -> MeterStatus.MANUAL
             else -> MeterStatus.LIVE
         }
 
@@ -208,5 +339,19 @@ class MeterViewModel(
     ): Double {
         val snapped = (value / step).roundToInt() * step
         return snapped.coerceIn(min, max)
+    }
+
+    private fun findNearestValue(
+        target: Double,
+        options: List<Double>,
+    ): Double {
+        return options.minByOrNull { abs(it - target) } ?: target
+    }
+
+    private fun valuesEqual(
+        first: Double,
+        second: Double,
+    ): Boolean {
+        return abs(first - second) < 0.0001
     }
 }

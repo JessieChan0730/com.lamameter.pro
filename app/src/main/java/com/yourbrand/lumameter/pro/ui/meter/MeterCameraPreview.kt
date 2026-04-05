@@ -10,6 +10,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -31,8 +32,6 @@ import com.yourbrand.lumameter.pro.data.camera.LuminanceAnalyzer
 import com.yourbrand.lumameter.pro.domain.exposure.LuminanceReading
 import com.yourbrand.lumameter.pro.domain.exposure.MeteringMode
 import com.yourbrand.lumameter.pro.domain.exposure.MeteringPoint
-import com.yourbrand.lumameter.pro.ui.theme.MeterAmberLight
-import com.yourbrand.lumameter.pro.ui.theme.MeterGreenLight
 import java.util.concurrent.Executors
 
 @Composable
@@ -42,6 +41,7 @@ fun MeterCameraPreview(
     meteringPoint: MeteringPoint,
     isAeLocked: Boolean,
     onMeteringPointChanged: (MeteringPoint) -> Unit,
+    onPreviewTapped: () -> Unit,
     onReadingAvailable: (LuminanceReading) -> Unit,
     onCameraError: (String) -> Unit,
 ) {
@@ -123,6 +123,7 @@ fun MeterCameraPreview(
                         y = tapOffset.y / height,
                     )
                 )
+                onPreviewTapped()
             }
         }
     ) {
@@ -148,7 +149,11 @@ private fun MeterReticle(
     val innerRadius = with(density) { 10.dp.toPx() }
     val strokeWidth = with(density) { 2.dp.toPx() }
     val guideLength = with(density) { 18.dp.toPx() }
-    val color = if (isAeLocked) MeterAmberLight else MeterGreenLight
+    val color = if (isAeLocked) {
+        MaterialTheme.colorScheme.tertiary
+    } else {
+        MaterialTheme.colorScheme.primary
+    }
 
     Canvas(modifier = Modifier.fillMaxSize()) {
         val center = Offset(
