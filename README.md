@@ -52,27 +52,30 @@ Example README image section:
 
 ## Features
 
-### Metering
+### Metering Workflow
 
-- Real-time luminance sampling from the camera feed
-- Spot metering via tap gesture
-- Center-weighted metering for fast general use
-- Average metering for full-frame brightness estimation
+- Real-time metering with CameraX preview and Y-plane luminance sampling
+- Single-shot metering mode for tap-once capture without continuous updates
+- Spot, Center Weighted, and Average metering modes
+- Tap-to-reposition metering point with an on-preview reticle
+- Live EV, metered luma, and average luma readout
 
-### Exposure
+### Exposure Controls
 
-- EV estimation from luminance
-- Exposure recommendation based on ISO and selected priority mode
-- AE Lock for freezing the current result
-- Exposure compensation from the control sheet
-- Calibration offset for device-specific adjustment
+- Aperture Priority and Shutter Priority exposure recommendations
+- ISO presets from 50 to 6400
+- AE Lock for freezing the current reading
+- Exposure compensation slider from `-3 EV` to `+3 EV`
+- Calibration offset adjustment from `-2 EV` to `+2 EV`
 
-### UX
+### Workflow And UI
 
-- One-screen-first workflow
-- Material 3 design language
-- Bottom-sheet controls for parameter adjustment
-- Bilingual UI resources
+- One-screen-first metering flow with preview, result, and primary controls together
+- Settings page for switching between live metering and single-shot metering
+- Follow System, Light, and Dark theme options with saved preference
+- Aperture and shutter libraries with custom value add/remove flows
+- Zoom controls with preset buttons and slider on supported cameras
+- English and Simplified Chinese localization
 
 ## Architecture
 
@@ -205,46 +208,52 @@ Windows:
 
 ## Testing
 
-Current test coverage includes a basic domain-level unit test:
+Current test coverage includes domain-level and state-level unit tests:
 
 - `ExposureCalculatorTest`
+- `MeterViewModelTest`
 
 Recommended future additions:
 
-- ViewModel state tests
 - metering mode calculation tests
 - UI screenshot tests
 - analyzer edge-case tests
+- CameraX permission and lifecycle instrumentation tests
 
 ## Current Status
 
 Implemented:
 
-- Main metering screen MVP
-- CameraX preview and luminance analysis
-- EV and exposure recommendation
-- AE Lock
-- Exposure compensation
-- Calibration offset
-- English and Chinese localization
+- Live metering and single-shot metering workflows
+- Spot / Center Weighted / Average metering with tap-to-move meter point
+- Aperture Priority / Shutter Priority exposure solving with ISO presets
+- AE Lock, exposure compensation, and calibration offset
+- Theme settings, zoom controls, and English / Chinese localization
+- Custom aperture and shutter libraries
+- Basic unit coverage for exposure logic and ViewModel state transitions
 
 Planned:
 
-- History records
-- Settings screen
-- Sensor-assisted metering
-- Better device calibration strategy
-- Screenshots and store-style documentation assets
+- Reading history and result review
+- Sensor-assisted or fused metering modes
+- Stronger device calibration workflow and profiles
+- Persistence for custom value libraries and more user preferences
+- Screenshots, demo images, and release assets
+- Broader UI and instrumentation test coverage
 
 ## Roadmap
 
 - [x] Real-time metering screen
+- [x] Single-shot metering mode
 - [x] Spot / Average / Center Weighted metering
 - [x] Aperture / Shutter priority modes
-- [x] Material 3 UI
-- [x] English and Chinese localization
-- [ ] History
-- [ ] Settings
-- [ ] Lux sensor support
-- [ ] Improved calibration workflow
+- [x] AE Lock, compensation, and calibration controls
+- [x] Theme settings and bilingual localization
+- [x] Custom aperture / shutter value libraries
+- [x] Zoom controls for supported cameras
+- [ ] Reading history
+- [ ] Sensor-assisted / lux metering
+- [ ] Persistence for custom value libraries and richer preferences
+- [ ] Improved calibration workflow and device profiles
 - [ ] Screenshots and release assets
+- [ ] Expanded UI / instrumentation test coverage
