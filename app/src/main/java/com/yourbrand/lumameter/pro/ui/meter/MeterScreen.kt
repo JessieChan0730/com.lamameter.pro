@@ -638,6 +638,9 @@ private fun ExposureSummaryRow(
     onOpenApertureLibrary: () -> Unit,
     onOpenShutterLibrary: () -> Unit,
 ) {
+    val isApertureAdjustable = uiState.exposureMode == ExposureMode.APERTURE_PRIORITY
+    val isShutterAdjustable = uiState.exposureMode == ExposureMode.SHUTTER_PRIORITY
+
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(14.dp),
@@ -654,9 +657,9 @@ private fun ExposureSummaryRow(
                 modifier = Modifier.weight(1f),
                 label = stringResource(R.string.label_aperture),
                 value = formatAperture(uiState.exposureResult.aperture),
-                emphasized = uiState.exposureMode == ExposureMode.APERTURE_PRIORITY,
-                locked = uiState.exposureMode == ExposureMode.APERTURE_PRIORITY,
-                enabled = uiState.exposureMode == ExposureMode.APERTURE_PRIORITY,
+                emphasized = isApertureAdjustable,
+                locked = !isApertureAdjustable,
+                enabled = isApertureAdjustable,
                 onClick = onOpenApertureLibrary,
             )
             MetricDivider()
@@ -664,9 +667,9 @@ private fun ExposureSummaryRow(
                 modifier = Modifier.weight(1f),
                 label = stringResource(R.string.label_shutter),
                 value = formatShutter(uiState.exposureResult.shutterSeconds),
-                emphasized = uiState.exposureMode == ExposureMode.SHUTTER_PRIORITY,
-                locked = uiState.exposureMode == ExposureMode.SHUTTER_PRIORITY,
-                enabled = uiState.exposureMode == ExposureMode.SHUTTER_PRIORITY,
+                emphasized = isShutterAdjustable,
+                locked = !isShutterAdjustable,
+                enabled = isShutterAdjustable,
                 onClick = onOpenShutterLibrary,
             )
             MetricDivider()
