@@ -1,5 +1,7 @@
 # LumaMeter
 
+[English](README.md) | [简体中文](README.zh-CN.md)
+
 LumaMeter is an Android light meter app built with Jetpack Compose and CameraX. It uses camera-frame luminance sampling to estimate scene brightness and provides basic exposure guidance such as EV, aperture, shutter speed, and ISO.
 
 The current version is an MVP focused on a fast metering workflow, a modern Material 3 interface, and a clean architecture that is easy to extend.
