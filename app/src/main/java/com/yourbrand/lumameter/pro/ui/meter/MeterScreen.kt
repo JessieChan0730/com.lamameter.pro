@@ -14,9 +14,10 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -32,7 +33,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
@@ -88,6 +88,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.platform.LocalContext
@@ -524,6 +525,8 @@ private fun MeteringTabs(
     currentMode: MeteringMode,
     onMeteringModeSelected: (MeteringMode) -> Unit,
 ) {
+    val density = LocalDensity.current
+
     Surface(
         shape = RoundedCornerShape(14.dp),
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.52f),
@@ -538,25 +541,28 @@ private fun MeteringTabs(
             val tabHeight = 48.dp
             val tabWidth = (maxWidth - spacing * (modes.size - 1)) / modes.size
             val selectedIndex = modes.indexOf(currentMode).coerceAtLeast(0)
-            val indicatorOffset by animateDpAsState(
-                targetValue = (tabWidth + spacing) * selectedIndex,
+            val indicatorOffsetPx by animateFloatAsState(
+                targetValue = with(density) { ((tabWidth + spacing) * selectedIndex).toPx() },
                 animationSpec = tween(
-                    durationMillis = 260,
+                    durationMillis = 180,
                     easing = FastOutSlowInEasing,
                 ),
-                label = "metering_tab_indicator_offset",
+                label = "metering_tab_indicator_offset_px",
             )
 
-            Surface(
+            Box(
                 modifier = Modifier
-                    .offset(x = indicatorOffset)
+                    .graphicsLayer { translationX = indicatorOffsetPx }
                     .width(tabWidth)
                     .height(tabHeight),
-                shape = RoundedCornerShape(10.dp),
-                color = MaterialTheme.colorScheme.surface,
-                tonalElevation = 2.dp,
-                shadowElevation = 2.dp,
-            ) {}
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(MaterialTheme.colorScheme.surface),
+                )
+            }
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -574,29 +580,24 @@ private fun MeteringTabs(
                         label = "metering_tab_content",
                     )
 
-                    Surface(
+                    Box(
                         modifier = Modifier
                             .weight(1f)
-                            .height(tabHeight),
-                        shape = RoundedCornerShape(10.dp),
-                        color = Color.Transparent,
-                        onClick = { onMeteringModeSelected(mode) },
+                            .height(tabHeight)
+                            .clip(RoundedCornerShape(10.dp))
+                            .clickable { onMeteringModeSelected(mode) },
+                        contentAlignment = Alignment.Center,
                     ) {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Text(
-                                text = meteringModeLabel(mode),
-                                modifier = Modifier.fillMaxWidth(),
-                                style = MaterialTheme.typography.labelLarge.copy(
-                                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
-                                ),
-                                color = contentColor,
-                                maxLines = 1,
-                                textAlign = TextAlign.Center,
-                            )
-                        }
+                        Text(
+                            text = meteringModeLabel(mode),
+                            modifier = Modifier.fillMaxWidth(),
+                            style = MaterialTheme.typography.labelLarge.copy(
+                                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                            ),
+                            color = contentColor,
+                            maxLines = 1,
+                            textAlign = TextAlign.Center,
+                        )
                     }
                 }
             }
@@ -967,26 +968,23 @@ private fun IsoSelector(
     val density = LocalDensity.current
     val scrollState = rememberScrollState()
     val selectedBounds = chipBounds[selectedValue]
-    val indicatorOffset by animateDpAsState(
-        targetValue = selectedBounds?.let { bounds ->
-            with(density) { bounds.offsetPx.toDp() }
-        } ?: 0.dp,
+    val indicatorOffsetPx by animateFloatAsState(
+        targetValue = selectedBounds?.offsetPx ?: 0f,
         animationSpec = tween(
-            durationMillis = 260,
+            durationMillis = 180,
             easing = FastOutSlowInEasing,
         ),
-        label = "iso_selector_indicator_offset",
+        label = "iso_selector_indicator_offset_px",
     )
-    val indicatorWidth by animateDpAsState(
-        targetValue = selectedBounds?.let { bounds ->
-            with(density) { bounds.widthPx.toDp() }
-        } ?: 0.dp,
+    val indicatorWidthPx by animateFloatAsState(
+        targetValue = selectedBounds?.widthPx?.toFloat() ?: 0f,
         animationSpec = tween(
-            durationMillis = 260,
+            durationMillis = 180,
             easing = FastOutSlowInEasing,
         ),
-        label = "iso_selector_indicator_width",
+        label = "iso_selector_indicator_width_px",
     )
+    val indicatorWidth = with(density) { indicatorWidthPx.toDp() }
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(
@@ -998,24 +996,11 @@ private fun IsoSelector(
                 text = stringResource(R.string.label_iso),
                 style = MaterialTheme.typography.titleMedium,
             )
-            AnimatedContent(
-                targetState = selectedValue,
-                transitionSpec = {
-                    (slideInHorizontally(
-                        animationSpec = tween(durationMillis = 220),
-                    ) { it / 3 } + fadeIn(animationSpec = tween(durationMillis = 220))) togetherWith
-                        (slideOutHorizontally(
-                            animationSpec = tween(durationMillis = 180),
-                        ) { -it / 3 } + fadeOut(animationSpec = tween(durationMillis = 180)))
-                },
-                label = "iso_value",
-            ) { isoValue ->
-                Text(
-                    text = stringResource(R.string.iso_value, isoValue),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-            }
+            Text(
+                text = stringResource(R.string.iso_value, selectedValue),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary,
+            )
         }
         Surface(
             shape = RoundedCornerShape(14.dp),
@@ -1027,17 +1012,20 @@ private fun IsoSelector(
                     .horizontalScroll(scrollState)
                     .padding(horizontal = 8.dp, vertical = 8.dp),
             ) {
-                if (selectedBounds != null) {
-                    Surface(
+                if (selectedBounds != null && indicatorWidthPx > 0f) {
+                    Box(
                         modifier = Modifier
-                            .offset(x = indicatorOffset)
+                            .graphicsLayer { translationX = indicatorOffsetPx }
                             .width(indicatorWidth)
                             .height(40.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.surface,
-                        tonalElevation = 2.dp,
-                        shadowElevation = 2.dp,
-                    ) {}
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(MaterialTheme.colorScheme.primary),
+                        )
+                    }
                 }
 
                 Row(
@@ -1047,7 +1035,7 @@ private fun IsoSelector(
                         val selected = selectedValue == iso
                         val contentColor by animateColorAsState(
                             targetValue = if (selected) {
-                                MaterialTheme.colorScheme.onSurface
+                                MaterialTheme.colorScheme.onPrimary
                             } else {
                                 MaterialTheme.colorScheme.onSurfaceVariant
                             },
@@ -1055,33 +1043,30 @@ private fun IsoSelector(
                             label = "iso_selector_content",
                         )
 
-                        Surface(
+                        Box(
                             modifier = Modifier
                                 .height(40.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .clickable { onIsoSelected(iso) }
                                 .onGloballyPositioned { coordinates ->
-                                    chipBounds[iso] = SelectorItemBounds(
+                                    val nextBounds = SelectorItemBounds(
                                         offsetPx = coordinates.positionInParent().x,
                                         widthPx = coordinates.size.width,
                                     )
+                                    if (chipBounds[iso] != nextBounds) {
+                                        chipBounds[iso] = nextBounds
+                                    }
                                 },
-                            shape = RoundedCornerShape(12.dp),
-                            color = Color.Transparent,
-                            onClick = { onIsoSelected(iso) },
+                            contentAlignment = Alignment.Center,
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .padding(horizontal = 16.dp)
-                                    .fillMaxSize(),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Text(
-                                    text = iso.toString(),
-                                    style = MaterialTheme.typography.labelLarge.copy(
-                                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
-                                    ),
-                                    color = contentColor,
-                                )
-                            }
+                            Text(
+                                text = iso.toString(),
+                                modifier = Modifier.padding(horizontal = 16.dp),
+                                style = MaterialTheme.typography.labelLarge.copy(
+                                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                                ),
+                                color = contentColor,
+                            )
                         }
                     }
                 }
