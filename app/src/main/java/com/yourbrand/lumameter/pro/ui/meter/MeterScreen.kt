@@ -740,6 +740,12 @@ private fun ExposureSummaryItem(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val labelColor = if (emphasized) {
+        MaterialTheme.colorScheme.primary
+    } else {
+        MaterialTheme.colorScheme.onSurfaceVariant
+    }
+
     Surface(
         modifier = modifier,
         color = Color.Transparent,
@@ -768,17 +774,13 @@ private fun ExposureSummaryItem(
                 if (locked) {
                     InlineMetricIcon(
                         imageVector = Icons.Rounded.Lock,
-                        tint = MaterialTheme.colorScheme.primary,
+                        tint = labelColor,
                     )
                 }
                 Text(
                     text = label,
                     style = MaterialTheme.typography.labelMedium,
-                    color = if (emphasized) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    },
+                    color = labelColor,
                     textAlign = TextAlign.Center,
                 )
             }
