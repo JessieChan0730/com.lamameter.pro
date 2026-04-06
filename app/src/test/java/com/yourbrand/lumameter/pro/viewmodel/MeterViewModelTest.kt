@@ -67,6 +67,79 @@ class MeterViewModelTest {
         assertEquals(secondReading, state.liveReading)
     }
 
+    @Test
+    fun `zoom presets reflect camera capability range`() {
+        val viewModel = MeterViewModel()
+
+        viewModel.updateZoomCapability(
+            minZoomRatio = 1f,
+            maxZoomRatio = 4f,
+        )
+
+        val state = viewModel.uiState.value
+        assertTrue(state.isZoomSupported)
+        assertEquals(1f, state.zoomRatio, 0.0001f)
+        assertEquals(listOf(false, true, true, true, false), state.zoomPresets.map { it.enabled })
+    }
+
+    @Test
+    fun `setting zoom ratio clamps to supported range`() {
+        val viewModel = MeterViewModel()
+        viewModel.updateZoomCapability(
+            minZoomRatio = 1f,
+            maxZoomRatio = 1.9f,
+        )
+
+        viewModel.setZoomRatio(4f)
+
+        val state = viewModel.uiState.value
+        assertEquals(1.9f, state.zoomRatio, 0.0001f)
+        assertTrue(state.zoomPresets.none { it.selected })
+    }
+
+    @Test
+    fun `fixed zoom devices hide zoom controls`() {
+        val viewModel = MeterViewModel()
+
+        viewModel.updateZoomCapability(
+            minZoomRatio = 1f,
+            maxZoomRatio = 1f,
+        )
+
+        val state = viewModel.uiState.value
+        assertFalse(state.isZoomSupported)
+        assertTrue(state.zoomPresets.isEmpty())
+        assertEquals(1f, state.zoomRatio, 0.0001f)
+    }
+
+    @Test
+    fun `wide zoom ranges expose all preset buttons`() {
+        val viewModel = MeterViewModel()
+
+        viewModel.updateZoomCapability(
+            minZoomRatio = 0.5f,
+            maxZoomRatio = 8f,
+        )
+
+        val state = viewModel.uiState.value
+        assertTrue(state.isZoomSupported)
+        assertEquals(listOf(true, true, true, true, true), state.zoomPresets.map { it.enabled })
+    }
+
+    @Test
+    fun `narrow zoom ranges keep unsupported preset buttons disabled`() {
+        val viewModel = MeterViewModel()
+
+        viewModel.updateZoomCapability(
+            minZoomRatio = 1f,
+            maxZoomRatio = 2f,
+        )
+
+        val state = viewModel.uiState.value
+        assertTrue(state.isZoomSupported)
+        assertEquals(listOf(false, true, true, false, false), state.zoomPresets.map { it.enabled })
+    }
+
     private fun sampleReading(meteredLuma: Double): LuminanceReading {
         return LuminanceReading(
             meteredLuma = meteredLuma,

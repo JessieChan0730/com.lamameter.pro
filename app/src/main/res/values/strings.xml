@@ -85,4 +85,8 @@
     <string name="cancel">Cancel</string>
     <string name="add_value">Add</string>
     <string name="back">Back</string>
+    <string name="failed_to_adjust_zoom">Failed to adjust zoom</string>
+    <string name="zoom_control">Zoom</string>
+    <string name="switch_zoom_to_slider">Switch zoom control to slider</string>
+    <string name="switch_zoom_to_buttons">Switch zoom control to zoom buttons</string>
 </resources>

@@ -85,4 +85,8 @@
     <string name="cancel">取消</string>
     <string name="add_value">添加</string>
     <string name="back">返回</string>
+    <string name="failed_to_adjust_zoom">调整变焦失败</string>
+    <string name="zoom_control">变焦</string>
+    <string name="switch_zoom_to_slider">切换为滑动条变焦</string>
+    <string name="switch_zoom_to_buttons">切换为倍率按钮</string>
 </resources>

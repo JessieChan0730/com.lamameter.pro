@@ -14,6 +14,12 @@ import kotlinx.coroutines.flow.update
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
+private const val DEFAULT_ZOOM_RATIO = 1f
+private const val MIN_ZOOM_RATIO = 0.1f
+private const val ZOOM_CAPABILITY_EPSILON = 0.01f
+private const val ZOOM_PRESET_SELECTION_EPSILON = 0.05f
+private val ZOOM_PRESET_RATIOS = listOf(0.5f, 1f, 2f, 4f, 8f)
+
 object MeterDefaults {
     val isoValues = listOf(50, 100, 200, 400, 800, 1600, 3200, 6400)
     val apertureValues = listOf(1.4, 2.0, 2.8, 4.0, 5.6, 8.0, 11.0, 16.0)
@@ -44,6 +50,12 @@ enum class MeterStatus {
     MANUAL,
 }
 
+data class ZoomPresetUiModel(
+    val ratio: Float,
+    val enabled: Boolean,
+    val selected: Boolean,
+)
+
 data class MeterUiState(
     val exposureMode: ExposureMode = ExposureMode.APERTURE_PRIORITY,
     val meteringMode: MeteringMode = MeteringMode.SPOT,
@@ -63,6 +75,11 @@ data class MeterUiState(
     val exposureResult: ExposureResult = ExposureResult.placeholder(),
     val meterStatus: MeterStatus = MeterStatus.WAITING,
     val cameraError: String? = null,
+    val zoomRatio: Float = DEFAULT_ZOOM_RATIO,
+    val minZoomRatio: Float = DEFAULT_ZOOM_RATIO,
+    val maxZoomRatio: Float = DEFAULT_ZOOM_RATIO,
+    val isZoomSupported: Boolean = false,
+    val zoomPresets: List<ZoomPresetUiModel> = emptyList(),
 )
 
 class MeterViewModel(
@@ -125,6 +142,29 @@ class MeterViewModel(
 
     fun setMeteringPoint(point: MeteringPoint) {
         _uiState.update { current -> current.copy(meteringPoint = point) }
+    }
+
+    fun updateZoomCapability(
+        minZoomRatio: Float,
+        maxZoomRatio: Float,
+    ) {
+        _uiState.update { current ->
+            buildZoomState(
+                baseState = current,
+                minZoomRatio = minZoomRatio,
+                maxZoomRatio = maxZoomRatio,
+                zoomRatio = current.zoomRatio,
+            )
+        }
+    }
+
+    fun setZoomRatio(zoomRatio: Float) {
+        _uiState.update { current ->
+            buildZoomState(
+                baseState = current,
+                zoomRatio = zoomRatio,
+            )
+        }
     }
 
     fun setLiveMeteringEnabled(enabled: Boolean) {
@@ -331,6 +371,56 @@ class MeterViewModel(
         return lockedBaseEv100 ?: smoothedBaseEv100
     }
 
+    private fun buildZoomState(
+        baseState: MeterUiState,
+        minZoomRatio: Float = baseState.minZoomRatio,
+        maxZoomRatio: Float = baseState.maxZoomRatio,
+        zoomRatio: Float = baseState.zoomRatio,
+    ): MeterUiState {
+        val normalizedMinZoom = minZoomRatio.coerceAtLeast(MIN_ZOOM_RATIO)
+        val normalizedMaxZoom = maxZoomRatio.coerceAtLeast(normalizedMinZoom)
+        val isZoomSupported = normalizedMaxZoom - normalizedMinZoom > ZOOM_CAPABILITY_EPSILON
+        val resolvedZoomRatio = if (isZoomSupported) {
+            zoomRatio.coerceIn(normalizedMinZoom, normalizedMaxZoom)
+        } else {
+            DEFAULT_ZOOM_RATIO
+        }
+        val zoomPresets = buildZoomPresets(
+            currentZoomRatio = resolvedZoomRatio,
+            minZoomRatio = normalizedMinZoom,
+            maxZoomRatio = normalizedMaxZoom,
+            isZoomSupported = isZoomSupported,
+        )
+
+        return baseState.copy(
+            zoomRatio = resolvedZoomRatio,
+            minZoomRatio = normalizedMinZoom,
+            maxZoomRatio = normalizedMaxZoom,
+            isZoomSupported = isZoomSupported,
+            zoomPresets = zoomPresets,
+        )
+    }
+
+    private fun buildZoomPresets(
+        currentZoomRatio: Float,
+        minZoomRatio: Float,
+        maxZoomRatio: Float,
+        isZoomSupported: Boolean,
+    ): List<ZoomPresetUiModel> {
+        if (!isZoomSupported) {
+            return emptyList()
+        }
+
+        return ZOOM_PRESET_RATIOS.map { presetRatio ->
+            val enabled = presetRatio in (minZoomRatio - ZOOM_CAPABILITY_EPSILON)..(maxZoomRatio + ZOOM_CAPABILITY_EPSILON)
+            ZoomPresetUiModel(
+                ratio = presetRatio,
+                enabled = enabled,
+                selected = enabled && abs(currentZoomRatio - presetRatio) < ZOOM_PRESET_SELECTION_EPSILON,
+            )
+        }
+    }
+
     private fun snapToStep(
         value: Double,
         step: Double,
@@ -354,4 +444,5 @@ class MeterViewModel(
     ): Boolean {
         return abs(first - second) < 0.0001
     }
+
 }

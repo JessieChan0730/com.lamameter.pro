@@ -11,13 +11,17 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -55,6 +59,7 @@ import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.LockOpen
 import androidx.compose.material.icons.rounded.PhotoCamera
 import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.SwapHoriz
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -91,6 +96,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInParent
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -116,6 +123,8 @@ import com.yourbrand.lumameter.pro.viewmodel.MeterUiState
 import com.yourbrand.lumameter.pro.viewmodel.MeterViewModel
 import java.util.Locale
 import kotlin.math.abs
+import kotlin.math.hypot
+import kotlin.math.roundToInt
 
 private enum class MeterPage {
     MAIN,
@@ -129,6 +138,11 @@ private enum class MeterSheet {
     CALIBRATION,
     ADD_APERTURE,
     ADD_SHUTTER,
+}
+
+private enum class ZoomControlMode {
+    PRESETS,
+    SLIDER,
 }
 
 private data class SelectorItemBounds(
@@ -258,6 +272,8 @@ fun MeterRoute(
                 onCameraError = viewModel::onCameraError,
                 onMeteringModeSelected = viewModel::setMeteringMode,
                 onMeteringPointChanged = viewModel::setMeteringPoint,
+                onZoomCapabilityResolved = viewModel::updateZoomCapability,
+                onZoomRatioChanged = viewModel::setZoomRatio,
                 onIsoSelected = viewModel::setIso,
                 onCompensationChanged = viewModel::setCompensation,
                 onAeLockToggled = viewModel::toggleAeLock,
@@ -335,6 +351,8 @@ private fun MeterMainPage(
     onCameraError: (String) -> Unit,
     onMeteringModeSelected: (MeteringMode) -> Unit,
     onMeteringPointChanged: (MeteringPoint) -> Unit,
+    onZoomCapabilityResolved: (Float, Float) -> Unit,
+    onZoomRatioChanged: (Float) -> Unit,
     onIsoSelected: (Int) -> Unit,
     onCompensationChanged: (Float) -> Unit,
     onAeLockToggled: () -> Unit,
@@ -394,11 +412,13 @@ private fun MeterMainPage(
                                 currentMode = uiState.meteringMode,
                                 onMeteringModeSelected = onMeteringModeSelected,
                             )
-                            PreviewCard(
+                            PreviewSection(
                                 uiState = uiState,
                                 onReadingAvailable = onReadingAvailable,
                                 onCameraError = onCameraError,
                                 onMeteringPointChanged = onMeteringPointChanged,
+                                onZoomCapabilityResolved = onZoomCapabilityResolved,
+                                onZoomRatioChanged = onZoomRatioChanged,
                                 onPreviewTapped = onPreviewTapped,
                             )
                             ExposureSummaryRow(
@@ -606,11 +626,52 @@ private fun MeteringTabs(
 }
 
 @Composable
+private fun PreviewSection(
+    uiState: MeterUiState,
+    onReadingAvailable: (LuminanceReading) -> Unit,
+    onCameraError: (String) -> Unit,
+    onMeteringPointChanged: (MeteringPoint) -> Unit,
+    onZoomCapabilityResolved: (Float, Float) -> Unit,
+    onZoomRatioChanged: (Float) -> Unit,
+    onPreviewTapped: () -> Unit,
+) {
+    var zoomControlMode by rememberSaveable(uiState.isZoomSupported) {
+        mutableStateOf(ZoomControlMode.PRESETS)
+    }
+
+    Column(
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        PreviewCard(
+            uiState = uiState,
+            onReadingAvailable = onReadingAvailable,
+            onCameraError = onCameraError,
+            onMeteringPointChanged = onMeteringPointChanged,
+            onZoomCapabilityResolved = onZoomCapabilityResolved,
+            onZoomRatioChanged = onZoomRatioChanged,
+            onPreviewTapped = onPreviewTapped,
+        )
+
+        if (uiState.isZoomSupported) {
+            ZoomControlSection(
+                uiState = uiState,
+                controlMode = zoomControlMode,
+                onZoomRatioChanged = onZoomRatioChanged,
+                onRequestSliderMode = { zoomControlMode = ZoomControlMode.SLIDER },
+                onRequestPresetMode = { zoomControlMode = ZoomControlMode.PRESETS },
+            )
+        }
+    }
+}
+
+@Composable
 private fun PreviewCard(
     uiState: MeterUiState,
     onReadingAvailable: (LuminanceReading) -> Unit,
     onCameraError: (String) -> Unit,
     onMeteringPointChanged: (MeteringPoint) -> Unit,
+    onZoomCapabilityResolved: (Float, Float) -> Unit,
+    onZoomRatioChanged: (Float) -> Unit,
     onPreviewTapped: () -> Unit,
 ) {
     Surface(
@@ -630,9 +691,12 @@ private fun PreviewCard(
                 meteringMode = uiState.meteringMode,
                 meteringPoint = uiState.meteringPoint,
                 isAeLocked = uiState.isAeLocked,
+                requestedZoomRatio = uiState.zoomRatio,
                 onMeteringPointChanged = onMeteringPointChanged,
                 onPreviewTapped = onPreviewTapped,
                 onReadingAvailable = onReadingAvailable,
+                onZoomCapabilityResolved = onZoomCapabilityResolved,
+                onZoomRatioApplied = onZoomRatioChanged,
                 onCameraError = onCameraError,
             )
 
@@ -663,6 +727,154 @@ private fun PreviewCard(
                 color = Color.White.copy(alpha = 0.92f),
             )
         }
+    }
+}
+
+@Composable
+private fun ZoomControlSection(
+    uiState: MeterUiState,
+    controlMode: ZoomControlMode,
+    onZoomRatioChanged: (Float) -> Unit,
+    onRequestSliderMode: () -> Unit,
+    onRequestPresetMode: () -> Unit,
+) {
+    val toggleDescription = if (controlMode == ZoomControlMode.PRESETS) {
+        stringResource(R.string.switch_zoom_to_slider)
+    } else {
+        stringResource(R.string.switch_zoom_to_buttons)
+    }
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.62f),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = stringResource(R.string.zoom_control),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    IconButton(
+                        onClick = {
+                            if (controlMode == ZoomControlMode.PRESETS) {
+                                onRequestSliderMode()
+                            } else {
+                                onRequestPresetMode()
+                            }
+                        },
+                        modifier = Modifier.size(20.dp),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.SwapHoriz,
+                            contentDescription = toggleDescription,
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+                Text(
+                    text = formatZoomRatio(uiState.zoomRatio),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+            }
+
+            AnimatedContent(
+                targetState = controlMode,
+                transitionSpec = {
+                    slideInVertically { height -> height / 3 } + fadeIn() togetherWith
+                        slideOutVertically { height -> -height / 3 } + fadeOut()
+                },
+                label = "zoom_control_mode",
+            ) { targetMode ->
+                when (targetMode) {
+                    ZoomControlMode.PRESETS -> ZoomPresetButtons(
+                        uiState = uiState,
+                        onZoomRatioChanged = onZoomRatioChanged,
+                        onRequestSliderMode = onRequestSliderMode,
+                    )
+
+                    ZoomControlMode.SLIDER -> ZoomSliderPanel(
+                        uiState = uiState,
+                        onZoomRatioChanged = onZoomRatioChanged,
+                        onRequestPresetMode = onRequestPresetMode,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ZoomPresetButtons(
+    uiState: MeterUiState,
+    onZoomRatioChanged: (Float) -> Unit,
+    onRequestSliderMode: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+    ) {
+        uiState.zoomPresets.forEach { preset ->
+            MeterChoiceChip(
+                label = formatZoomRatio(preset.ratio),
+                modifier = Modifier.graphicsLayer {
+                    alpha = if (preset.enabled) 1f else 0.42f
+                },
+                selected = preset.selected,
+                onClick = if (preset.enabled) {
+                    {
+                        if (preset.selected) {
+                            onRequestSliderMode()
+                        } else {
+                            onZoomRatioChanged(preset.ratio)
+                        }
+                    }
+                } else {
+                    null
+                },
+            )
+        }
+    }
+}
+
+@Composable
+private fun ZoomSliderPanel(
+    uiState: MeterUiState,
+    onZoomRatioChanged: (Float) -> Unit,
+    onRequestPresetMode: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .observeZoomSliderTap(onTap = onRequestPresetMode),
+    ) {
+        Slider(
+            value = uiState.zoomRatio,
+            onValueChange = onZoomRatioChanged,
+            valueRange = uiState.minZoomRatio..uiState.maxZoomRatio,
+            colors = SliderDefaults.colors(
+                thumbColor = MaterialTheme.colorScheme.primary,
+                activeTrackColor = MaterialTheme.colorScheme.primary,
+                inactiveTrackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+            ),
+        )
     }
 }
 
@@ -1788,6 +2000,47 @@ private fun formatShutter(value: Double): String {
 
 private fun formatLuma(value: Double): String {
     return String.format(Locale.getDefault(), "%.0f", value)
+}
+
+private fun formatZoomRatio(value: Float): String {
+    val roundedWhole = value.roundToInt().toFloat()
+    return if (abs(value - roundedWhole) < 0.05f) {
+        "${roundedWhole.roundToInt()}x"
+    } else {
+        String.format(Locale.getDefault(), "%.1fx", value)
+    }
+}
+
+private fun Modifier.observeZoomSliderTap(
+    onTap: () -> Unit,
+): Modifier {
+    return pointerInput(onTap) {
+        awaitEachGesture {
+            val down = awaitFirstDown(
+                requireUnconsumed = false,
+                pass = PointerEventPass.Final,
+            )
+            val touchSlop = viewConfiguration.touchSlop
+            var isTap = true
+            var latestDistance = 0f
+            var pointerPressed = true
+
+            while (pointerPressed) {
+                val event = awaitPointerEvent(pass = PointerEventPass.Final)
+                val pointerChange = event.changes.firstOrNull { it.id == down.id } ?: break
+                val delta = pointerChange.position - down.position
+                latestDistance = hypot(delta.x.toDouble(), delta.y.toDouble()).toFloat()
+                if (latestDistance > touchSlop) {
+                    isTap = false
+                }
+                pointerPressed = event.changes.any { it.id == down.id && it.pressed }
+            }
+
+            if (isTap && latestDistance <= touchSlop) {
+                onTap()
+            }
+        }
+    }
 }
 
 private fun parseApertureInput(input: String): Double? {
