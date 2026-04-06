@@ -13,7 +13,6 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -45,7 +44,6 @@ import androidx.compose.material.icons.rounded.BrightnessAuto
 import androidx.compose.material.icons.rounded.CameraAlt
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.DeleteOutline
-import androidx.compose.material.icons.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.LockOpen
 import androidx.compose.material.icons.rounded.PhotoCamera
@@ -82,6 +80,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -386,7 +385,11 @@ private fun MeterMainPage(
                                 onMeteringPointChanged = onMeteringPointChanged,
                                 onPreviewTapped = onPreviewTapped,
                             )
-                            ExposureSummaryRow(uiState = uiState)
+                            ExposureSummaryRow(
+                                uiState = uiState,
+                                onOpenApertureLibrary = onOpenApertureLibrary,
+                                onOpenShutterLibrary = onOpenShutterLibrary,
+                            )
                             ExposureAdjustmentRow(
                                 uiState = uiState,
                                 onAeLockToggled = onAeLockToggled,
@@ -398,25 +401,6 @@ private fun MeterMainPage(
                                 selectedValue = uiState.selectedIso,
                                 onIsoSelected = onIsoSelected,
                             )
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            ) {
-                                ParameterModeButton(
-                                    modifier = Modifier.weight(1f),
-                                    label = stringResource(R.string.label_shutter),
-                                    value = formatShutter(uiState.selectedShutterSeconds),
-                                    active = uiState.exposureMode == ExposureMode.SHUTTER_PRIORITY,
-                                    onClick = onOpenShutterLibrary,
-                                )
-                                ParameterModeButton(
-                                    modifier = Modifier.weight(1f),
-                                    label = stringResource(R.string.label_aperture),
-                                    value = formatAperture(uiState.selectedAperture),
-                                    active = uiState.exposureMode == ExposureMode.APERTURE_PRIORITY,
-                                    onClick = onOpenApertureLibrary,
-                                )
-                            }
                         }
                     }
                 }
@@ -455,7 +439,7 @@ private fun MainHeader(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Surface(
-                shape = RoundedCornerShape(18.dp),
+                shape = RoundedCornerShape(14.dp),
                 color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
                 tonalElevation = 3.dp,
             ) {
@@ -526,7 +510,7 @@ private fun MeteringTabs(
     onMeteringModeSelected: (MeteringMode) -> Unit,
 ) {
     Surface(
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(12.dp),
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.42f),
     ) {
         Row(
@@ -539,7 +523,7 @@ private fun MeteringTabs(
                 val selected = currentMode == mode
                 Surface(
                     modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(14.dp),
+                    shape = RoundedCornerShape(10.dp),
                     color = if (selected) {
                         MaterialTheme.colorScheme.surface
                     } else {
@@ -557,6 +541,7 @@ private fun MeteringTabs(
                     ) {
                         Text(
                             text = meteringModeLabel(mode),
+                            modifier = Modifier.fillMaxWidth(),
                             style = MaterialTheme.typography.labelLarge,
                             color = if (selected) {
                                 MaterialTheme.colorScheme.onSurface
@@ -564,6 +549,7 @@ private fun MeteringTabs(
                                 MaterialTheme.colorScheme.onSurfaceVariant
                             },
                             maxLines = 1,
+                            textAlign = TextAlign.Center,
                         )
                         Box(
                             modifier = Modifier
@@ -596,8 +582,8 @@ private fun PreviewCard(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(24.dp)),
-        shape = RoundedCornerShape(24.dp),
+            .clip(RoundedCornerShape(18.dp)),
+        shape = RoundedCornerShape(18.dp),
         color = Color.Black.copy(alpha = 0.08f),
     ) {
         Box(
@@ -649,10 +635,12 @@ private fun PreviewCard(
 @Composable
 private fun ExposureSummaryRow(
     uiState: MeterUiState,
+    onOpenApertureLibrary: () -> Unit,
+    onOpenShutterLibrary: () -> Unit,
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(14.dp),
         color = MaterialTheme.colorScheme.surface,
         shadowElevation = 2.dp,
     ) {
@@ -667,6 +655,9 @@ private fun ExposureSummaryRow(
                 label = stringResource(R.string.label_aperture),
                 value = formatAperture(uiState.exposureResult.aperture),
                 emphasized = uiState.exposureMode == ExposureMode.APERTURE_PRIORITY,
+                locked = uiState.exposureMode == ExposureMode.APERTURE_PRIORITY,
+                enabled = uiState.exposureMode == ExposureMode.APERTURE_PRIORITY,
+                onClick = onOpenApertureLibrary,
             )
             MetricDivider()
             ExposureSummaryItem(
@@ -674,6 +665,9 @@ private fun ExposureSummaryRow(
                 label = stringResource(R.string.label_shutter),
                 value = formatShutter(uiState.exposureResult.shutterSeconds),
                 emphasized = uiState.exposureMode == ExposureMode.SHUTTER_PRIORITY,
+                locked = uiState.exposureMode == ExposureMode.SHUTTER_PRIORITY,
+                enabled = uiState.exposureMode == ExposureMode.SHUTTER_PRIORITY,
+                onClick = onOpenShutterLibrary,
             )
             MetricDivider()
             ExposureSummaryItem(
@@ -681,6 +675,9 @@ private fun ExposureSummaryRow(
                 label = stringResource(R.string.label_iso),
                 value = stringResource(R.string.iso_inline_value, uiState.exposureResult.iso),
                 emphasized = true,
+                locked = false,
+                enabled = false,
+                onClick = {},
             )
         }
     }
@@ -701,29 +698,68 @@ private fun ExposureSummaryItem(
     label: String,
     value: String,
     emphasized: Boolean,
+    locked: Boolean,
+    enabled: Boolean,
+    onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(
+    Surface(
         modifier = modifier,
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+        color = Color.Transparent,
+        onClick = onClick,
+        enabled = enabled,
     ) {
-        Text(
-            text = value,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelMedium,
-            color = if (emphasized) {
-                MaterialTheme.colorScheme.primary
-            } else {
-                MaterialTheme.colorScheme.onSurfaceVariant
-            },
-        )
+        Column(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text(
+                text = value,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = if (enabled) {
+                    MaterialTheme.colorScheme.onSurface
+                } else {
+                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.86f)
+                },
+            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (locked) {
+                    InlineMetricIcon(
+                        imageVector = Icons.Rounded.Lock,
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                }
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (emphasized) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                    textAlign = TextAlign.Center,
+                )
+            }
+        }
     }
+}
+
+@Composable
+private fun InlineMetricIcon(
+    imageVector: ImageVector,
+    tint: Color,
+) {
+    Icon(
+        modifier = Modifier.size(12.dp),
+        imageVector = imageVector,
+        contentDescription = null,
+        tint = tint,
+    )
 }
 
 @Composable
@@ -735,7 +771,7 @@ private fun ExposureAdjustmentRow(
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(16.dp),
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.62f),
     ) {
         Row(
@@ -747,7 +783,7 @@ private fun ExposureAdjustmentRow(
         ) {
             Surface(
                 modifier = Modifier.weight(0.32f),
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(14.dp),
                 color = if (uiState.isAeLocked) {
                     MaterialTheme.colorScheme.primaryContainer
                 } else {
@@ -908,7 +944,7 @@ private fun IsoSelector(
             )
         }
         Surface(
-            shape = RoundedCornerShape(18.dp),
+            shape = RoundedCornerShape(14.dp),
             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.42f),
         ) {
             LazyRow(
@@ -925,70 +961,6 @@ private fun IsoSelector(
                     )
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun ParameterModeButton(
-    label: String,
-    value: String,
-    active: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(18.dp),
-        color = if (active) {
-            MaterialTheme.colorScheme.primaryContainer
-        } else {
-            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.48f)
-        },
-        onClick = onClick,
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 14.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                Text(
-                    text = label,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = if (active) {
-                        MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.82f)
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    },
-                    maxLines = 1,
-                )
-                Text(
-                    text = value,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = if (active) {
-                        MaterialTheme.colorScheme.onPrimaryContainer
-                    } else {
-                        MaterialTheme.colorScheme.onSurface
-                    },
-                    maxLines = 1,
-                )
-            }
-            Icon(
-                imageVector = Icons.Rounded.KeyboardArrowRight,
-                contentDescription = null,
-                tint = if (active) {
-                    MaterialTheme.colorScheme.onPrimaryContainer
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                },
-            )
         }
     }
 }
@@ -1096,7 +1068,7 @@ private fun SettingsToggleCard(
     onCheckedChange: (Boolean) -> Unit,
 ) {
     Surface(
-        shape = RoundedCornerShape(22.dp),
+        shape = RoundedCornerShape(18.dp),
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
         onClick = { onCheckedChange(!checked) },
     ) {
@@ -1164,7 +1136,7 @@ private fun ThemeOptionCard(
     onClick: () -> Unit,
 ) {
     Surface(
-        shape = RoundedCornerShape(22.dp),
+        shape = RoundedCornerShape(18.dp),
         color = if (selected) {
             MaterialTheme.colorScheme.primaryContainer
         } else {
@@ -1338,7 +1310,7 @@ private fun ValueRow(
     onDelete: (() -> Unit)?,
 ) {
     Surface(
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(16.dp),
         color = if (selected) {
             MaterialTheme.colorScheme.primaryContainer
         } else {
@@ -1425,7 +1397,7 @@ private fun ExposureModeSheet(
         )
         ExposureMode.entries.forEach { mode ->
             Surface(
-                shape = RoundedCornerShape(22.dp),
+                shape = RoundedCornerShape(18.dp),
                 color = if (currentMode == mode) {
                     MaterialTheme.colorScheme.primaryContainer
                 } else {
@@ -1618,7 +1590,7 @@ private fun PermissionEmptyState(
 ) {
     Card(
         modifier = modifier,
-        shape = RoundedCornerShape(30.dp),
+        shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
         ),
@@ -1631,7 +1603,7 @@ private fun PermissionEmptyState(
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Surface(
-                shape = RoundedCornerShape(24.dp),
+                shape = RoundedCornerShape(20.dp),
                 color = MaterialTheme.colorScheme.primaryContainer,
             ) {
                 Icon(

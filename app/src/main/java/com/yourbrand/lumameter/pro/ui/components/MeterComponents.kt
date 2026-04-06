@@ -23,7 +23,7 @@ fun MeterPanel(
 ) {
     Surface(
         modifier = modifier,
-        shape = RoundedCornerShape(28.dp),
+        shape = RoundedCornerShape(22.dp),
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.98f),
         tonalElevation = 3.dp,
         shadowElevation = 8.dp,
@@ -64,12 +64,12 @@ fun MeterChoiceChip(
                 Modifier
             }
         ),
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(14.dp),
         color = containerColor,
         tonalElevation = if (selected) 1.dp else 0.dp,
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp),
+            modifier = Modifier.padding(horizontal = 13.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
