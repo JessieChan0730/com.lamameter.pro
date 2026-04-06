@@ -37,6 +37,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
@@ -72,7 +73,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderColors
 import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.SliderState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
@@ -105,6 +108,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -148,6 +152,11 @@ private enum class ZoomControlMode {
 private data class SelectorItemBounds(
     val offsetPx: Float,
     val widthPx: Int,
+)
+
+private data class SliderScaleStop(
+    val value: Float,
+    val label: String? = null,
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -854,26 +863,52 @@ private fun ZoomPresetButtons(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ZoomSliderPanel(
     uiState: MeterUiState,
     onZoomRatioChanged: (Float) -> Unit,
     onRequestPresetMode: () -> Unit,
 ) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .observeZoomSliderTap(onTap = onRequestPresetMode),
+    val sliderColors = SliderDefaults.colors(
+        thumbColor = MaterialTheme.colorScheme.primary,
+        activeTrackColor = MaterialTheme.colorScheme.primary,
+        inactiveTrackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+    )
+    val scaleStops = remember(
+        uiState.minZoomRatio,
+        uiState.maxZoomRatio,
+        uiState.zoomPresets,
     ) {
-        Slider(
-            value = uiState.zoomRatio,
-            onValueChange = onZoomRatioChanged,
+        buildZoomScaleStops(uiState)
+    }
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .observeZoomSliderTap(onTap = onRequestPresetMode),
+        ) {
+            Slider(
+                value = uiState.zoomRatio,
+                onValueChange = onZoomRatioChanged,
+                valueRange = uiState.minZoomRatio..uiState.maxZoomRatio,
+                colors = sliderColors,
+                track = { sliderState ->
+                    CompactSliderTrack(
+                        sliderState = sliderState,
+                        colors = sliderColors,
+                    )
+                },
+            )
+        }
+        SliderScale(
+            stops = scaleStops,
             valueRange = uiState.minZoomRatio..uiState.maxZoomRatio,
-            colors = SliderDefaults.colors(
-                thumbColor = MaterialTheme.colorScheme.primary,
-                activeTrackColor = MaterialTheme.colorScheme.primary,
-                inactiveTrackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
-            ),
+            labelWidth = 38.dp,
         )
     }
 }
@@ -1013,6 +1048,7 @@ private fun InlineMetricIcon(
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ExposureAdjustmentRow(
     uiState: MeterUiState,
@@ -1020,6 +1056,15 @@ private fun ExposureAdjustmentRow(
     onCompensationChanged: (Float) -> Unit,
     onOpenCalibration: () -> Unit,
 ) {
+    val sliderColors = SliderDefaults.colors(
+        thumbColor = MaterialTheme.colorScheme.primary,
+        activeTrackColor = MaterialTheme.colorScheme.primary,
+        inactiveTrackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+    )
+    val compensationScaleStops = remember {
+        (-3..3).map { SliderScaleStop(value = it.toFloat()) }
+    }
+
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -1085,7 +1130,7 @@ private fun ExposureAdjustmentRow(
             Box(
                 modifier = Modifier
                     .width(1.dp)
-                    .height(72.dp)
+                    .height(50.dp)
                     .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.16f)),
             )
 
@@ -1137,11 +1182,18 @@ private fun ExposureAdjustmentRow(
                     onValueChange = onCompensationChanged,
                     valueRange = -3f..3f,
                     steps = 19,
-                    colors = SliderDefaults.colors(
-                        thumbColor = MaterialTheme.colorScheme.primary,
-                        activeTrackColor = MaterialTheme.colorScheme.primary,
-                        inactiveTrackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
-                    ),
+                    colors = sliderColors,
+                    track = { sliderState ->
+                        CompactSliderTrack(
+                            sliderState = sliderState,
+                            colors = sliderColors,
+                        )
+                    },
+                )
+                SliderScale(
+                    stops = compensationScaleStops,
+                    valueRange = -3f..3f,
+                    tickHeight = 5.dp,
                 )
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -1876,6 +1928,92 @@ private fun ValueInputSheet(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CompactSliderTrack(
+    sliderState: SliderState,
+    colors: SliderColors,
+    enabled: Boolean = true,
+) {
+    SliderDefaults.Track(
+        sliderState = sliderState,
+        enabled = enabled,
+        colors = colors,
+        drawStopIndicator = null,
+        drawTick = { _, _ -> },
+        thumbTrackGapSize = 0.dp,
+        trackInsideCornerSize = 0.dp,
+    )
+}
+
+@Composable
+private fun SliderScale(
+    stops: List<SliderScaleStop>,
+    valueRange: ClosedFloatingPointRange<Float>,
+    modifier: Modifier = Modifier,
+    labelWidth: Dp = 32.dp,
+    tickHeight: Dp = 6.dp,
+) {
+    if (stops.isEmpty()) {
+        return
+    }
+
+    val hasLabels = stops.any { it.label != null }
+    val totalHeight = if (hasLabels) tickHeight + 18.dp else tickHeight
+    val tickColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.38f)
+    val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val range = (valueRange.endInclusive - valueRange.start).coerceAtLeast(0.0001f)
+
+    BoxWithConstraints(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(totalHeight),
+    ) {
+        val maxLabelOffset = if (maxWidth > labelWidth) maxWidth - labelWidth else 0.dp
+        val maxTickOffset = if (maxWidth > 1.dp) maxWidth - 1.dp else 0.dp
+        val labelOffsetY = tickHeight + 4.dp
+
+        stops.forEach { stop ->
+            val fraction = ((stop.value - valueRange.start) / range).coerceIn(0f, 1f)
+            val centerOffset = maxWidth * fraction
+            val rawTickOffset = centerOffset - 0.5.dp
+            val tickOffset = when {
+                rawTickOffset < 0.dp -> 0.dp
+                rawTickOffset > maxTickOffset -> maxTickOffset
+                else -> rawTickOffset
+            }
+
+            Box(
+                modifier = Modifier
+                    .offset(x = tickOffset)
+                    .width(1.dp)
+                    .height(tickHeight)
+                    .background(tickColor),
+            )
+
+            stop.label?.let { label ->
+                val rawLabelOffset = centerOffset - labelWidth / 2
+                val labelOffset = when {
+                    rawLabelOffset < 0.dp -> 0.dp
+                    rawLabelOffset > maxLabelOffset -> maxLabelOffset
+                    else -> rawLabelOffset
+                }
+
+                Text(
+                    text = label,
+                    modifier = Modifier
+                        .offset(x = labelOffset, y = labelOffsetY)
+                        .width(labelWidth),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = labelColor,
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                )
+            }
+        }
+    }
+}
+
 @Composable
 private fun PageHeader(
     title: String,
@@ -2008,6 +2146,29 @@ private fun formatZoomRatio(value: Float): String {
         "${roundedWhole.roundToInt()}x"
     } else {
         String.format(Locale.getDefault(), "%.1fx", value)
+    }
+}
+
+private fun buildZoomScaleStops(uiState: MeterUiState): List<SliderScaleStop> {
+    val minZoom = uiState.minZoomRatio
+    val maxZoom = uiState.maxZoomRatio
+
+    return buildList {
+        add(SliderScaleStop(value = minZoom, label = formatZoomRatio(minZoom)))
+        uiState.zoomPresets
+            .asSequence()
+            .filter { it.enabled }
+            .map { it.ratio }
+            .filter { ratio ->
+                abs(ratio - minZoom) > 0.12f && abs(ratio - maxZoom) > 0.12f
+            }
+            .sorted()
+            .forEach { ratio ->
+                add(SliderScaleStop(value = ratio, label = formatZoomRatio(ratio)))
+            }
+        if (abs(maxZoom - minZoom) > 0.12f) {
+            add(SliderScaleStop(value = maxZoom, label = formatZoomRatio(maxZoom)))
+        }
     }
 }
 
