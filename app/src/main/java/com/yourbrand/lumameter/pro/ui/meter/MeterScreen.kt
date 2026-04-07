@@ -1973,7 +1973,7 @@ private fun SliderScale(
         val maxTickOffset = if (maxWidth > 1.dp) maxWidth - 1.dp else 0.dp
         val labelOffsetY = tickHeight + 4.dp
 
-        stops.forEach { stop ->
+        stops.forEachIndexed { index, stop ->
             val fraction = ((stop.value - valueRange.start) / range).coerceIn(0f, 1f)
             val centerOffset = maxWidth * fraction
             val rawTickOffset = centerOffset - 0.5.dp
@@ -1998,6 +1998,12 @@ private fun SliderScale(
                     rawLabelOffset > maxLabelOffset -> maxLabelOffset
                     else -> rawLabelOffset
                 }
+                val labelTextAlign = when {
+                    stops.size == 1 -> TextAlign.Center
+                    index == 0 -> TextAlign.Start
+                    index == stops.lastIndex -> TextAlign.End
+                    else -> TextAlign.Center
+                }
 
                 Text(
                     text = label,
@@ -2006,7 +2012,7 @@ private fun SliderScale(
                         .width(labelWidth),
                     style = MaterialTheme.typography.labelSmall,
                     color = labelColor,
-                    textAlign = TextAlign.Center,
+                    textAlign = labelTextAlign,
                     maxLines = 1,
                 )
             }

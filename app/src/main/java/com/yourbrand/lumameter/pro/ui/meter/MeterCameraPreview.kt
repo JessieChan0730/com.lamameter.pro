@@ -37,6 +37,7 @@ import com.yourbrand.lumameter.pro.data.camera.LuminanceAnalyzer
 import com.yourbrand.lumameter.pro.domain.exposure.LuminanceReading
 import com.yourbrand.lumameter.pro.domain.exposure.MeteringMode
 import com.yourbrand.lumameter.pro.domain.exposure.MeteringPoint
+import java.util.concurrent.CancellationException
 import java.util.concurrent.Executors
 import kotlin.math.abs
 
@@ -73,6 +74,7 @@ fun MeterCameraPreview(
     val currentErrorCallback by rememberUpdatedState(onCameraError)
     var boundCamera by remember { mutableStateOf<Camera?>(null) }
     var lastAppliedZoomRatio by remember { mutableStateOf<Float?>(null) }
+    var latestZoomRequestToken by remember { mutableStateOf(0) }
 
     DisposableEffect(lifecycleOwner, previewView) {
         val analyzerExecutor = Executors.newSingleThreadExecutor()
@@ -119,11 +121,19 @@ fun MeterCameraPreview(
 
                 val safeZoomRatio = currentRequestedZoomRatio.coerceIn(minZoomRatio, maxZoomRatio)
                 lastAppliedZoomRatio = safeZoomRatio
+                latestZoomRequestToken += 1
+                val zoomRequestToken = latestZoomRequestToken
                 applyZoomRatio(
                     camera = camera,
                     zoomRatio = safeZoomRatio,
                     context = context,
+                    isLatestRequest = { zoomRequestToken == latestZoomRequestToken },
                     onZoomRatioApplied = currentZoomRatioCallback,
+                    onZoomRequestFailed = {
+                        if (zoomRequestToken == latestZoomRequestToken) {
+                            lastAppliedZoomRatio = null
+                        }
+                    },
                     onCameraError = currentErrorCallback,
                 )
             }.onFailure { _ ->
@@ -140,6 +150,7 @@ fun MeterCameraPreview(
         onDispose {
             boundCamera = null
             lastAppliedZoomRatio = null
+            latestZoomRequestToken += 1
             cameraProvider?.unbindAll()
             analyzerExecutor.shutdown()
         }
@@ -157,11 +168,19 @@ fun MeterCameraPreview(
         }
 
         lastAppliedZoomRatio = safeZoomRatio
+        latestZoomRequestToken += 1
+        val zoomRequestToken = latestZoomRequestToken
         applyZoomRatio(
             camera = camera,
             zoomRatio = safeZoomRatio,
             context = context,
+            isLatestRequest = { zoomRequestToken == latestZoomRequestToken },
             onZoomRatioApplied = currentZoomRatioCallback,
+            onZoomRequestFailed = {
+                if (zoomRequestToken == latestZoomRequestToken) {
+                    lastAppliedZoomRatio = null
+                }
+            },
             onCameraError = currentErrorCallback,
         )
     }
@@ -197,22 +216,42 @@ private fun applyZoomRatio(
     camera: Camera,
     zoomRatio: Float,
     context: Context,
+    isLatestRequest: () -> Boolean,
     onZoomRatioApplied: (Float) -> Unit,
+    onZoomRequestFailed: () -> Unit,
     onCameraError: (String) -> Unit,
 ) {
     val zoomOperation = camera.cameraControl.setZoomRatio(zoomRatio)
     zoomOperation.addListener(
         {
+            if (!isLatestRequest()) {
+                return@addListener
+            }
             runCatching {
                 zoomOperation.get()
                 val appliedZoomRatio = camera.cameraInfo.zoomState.value?.zoomRatio ?: zoomRatio
                 onZoomRatioApplied(appliedZoomRatio)
-            }.onFailure {
+            }.onFailure { throwable ->
+                if (throwable.isZoomRequestCancellation()) {
+                    return@onFailure
+                }
+                onZoomRequestFailed()
                 onCameraError(context.getString(R.string.failed_to_adjust_zoom))
             }
         },
         ContextCompat.getMainExecutor(context),
     )
+}
+
+private fun Throwable.isZoomRequestCancellation(): Boolean {
+    var current: Throwable? = this
+    while (current != null) {
+        if (current is CancellationException || current.javaClass.simpleName == "OperationCanceledException") {
+            return true
+        }
+        current = current.cause
+    }
+    return false
 }
 
 @Composable
