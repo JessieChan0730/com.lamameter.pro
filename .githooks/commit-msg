@@ -1,0 +1,42 @@
+#!/bin/sh
+
+COMMIT_MSG_FILE=$1
+CONVENTIONAL_COMMIT_PATTERN='^(fixup! |squash! )?(feat|fix|chore|docs|style|refactor|perf|test|build|ci|revert)(\([A-Za-z0-9._/-]+\))?(!)?: .+'
+IGNORED_PATTERN='^(Merge|Revert ")'
+
+if [ ! -f "$COMMIT_MSG_FILE" ]; then
+  echo "commit-msg hook error: missing commit message file." >&2
+  exit 1
+fi
+
+subject=$(sed -n -e '/^#/d' -e '/^[[:space:]]*$/d' -e '1p' "$COMMIT_MSG_FILE")
+
+if [ -z "$subject" ]; then
+  echo "Commit message subject is empty." >&2
+  exit 1
+fi
+
+if printf '%s\n' "$subject" | grep -Eq "$IGNORED_PATTERN"; then
+  exit 0
+fi
+
+if printf '%s\n' "$subject" | grep -Eq "$CONVENTIONAL_COMMIT_PATTERN"; then
+  exit 0
+fi
+
+cat >&2 <<'EOF'
+Invalid commit message subject.
+
+Expected:
+  <type>(optional-scope): <description>
+
+Examples:
+  feat: add AE lock toggle
+  fix(camera): stop preview crash on resume
+  docs: document git hook setup
+
+Allowed types:
+  feat, fix, chore, docs, style, refactor, perf, test, build, ci, revert
+EOF
+
+exit 1
