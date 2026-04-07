@@ -23,8 +23,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -260,64 +260,106 @@ private fun MeterReticle(
     isAeLocked: Boolean,
 ) {
     val density = LocalDensity.current
-    val outerRadius = with(density) { 30.dp.toPx() }
-    val innerRadius = with(density) { 10.dp.toPx() }
+    val frameHalfSize = with(density) { 20.dp.toPx() }
+    val cornerLength = with(density) { 9.dp.toPx() }
+    val crossHalfLength = with(density) { 5.dp.toPx() }
     val strokeWidth = with(density) { 2.dp.toPx() }
-    val guideLength = with(density) { 18.dp.toPx() }
+    val contrastStrokeWidth = strokeWidth + with(density) { 2.dp.toPx() }
     val color = if (isAeLocked) {
         MaterialTheme.colorScheme.tertiary
     } else {
         MaterialTheme.colorScheme.primary
-    }
+    }.copy(alpha = RETICLE_ALPHA)
+    val contrastColor = Color.Black.copy(alpha = 0.22f)
 
     Canvas(modifier = Modifier.fillMaxSize()) {
         val center = Offset(
             x = size.width * meteringPoint.x,
             y = size.height * meteringPoint.y,
         )
+        val left = center.x - frameHalfSize
+        val right = center.x + frameHalfSize
+        val top = center.y - frameHalfSize
+        val bottom = center.y + frameHalfSize
 
-        drawCircle(
-            color = color.copy(alpha = 0.22f),
-            radius = outerRadius,
-            center = center,
-            style = Stroke(width = strokeWidth),
-        )
-        drawCircle(
-            color = color,
-            radius = innerRadius,
-            center = center,
-            style = Stroke(width = strokeWidth),
-        )
-        drawLine(
-            color = color,
-            start = Offset(center.x - guideLength, center.y),
-            end = Offset(center.x - innerRadius, center.y),
-            strokeWidth = strokeWidth,
-            cap = StrokeCap.Round,
-        )
-        drawLine(
-            color = color,
-            start = Offset(center.x + innerRadius, center.y),
-            end = Offset(center.x + guideLength, center.y),
-            strokeWidth = strokeWidth,
-            cap = StrokeCap.Round,
-        )
-        drawLine(
-            color = color,
-            start = Offset(center.x, center.y - guideLength),
-            end = Offset(center.x, center.y - innerRadius),
-            strokeWidth = strokeWidth,
-            cap = StrokeCap.Round,
-        )
-        drawLine(
-            color = color,
-            start = Offset(center.x, center.y + innerRadius),
-            end = Offset(center.x, center.y + guideLength),
-            strokeWidth = strokeWidth,
-            cap = StrokeCap.Round,
-        )
+        fun drawReticleLines(lineColor: Color, lineStrokeWidth: Float) {
+            drawLine(
+                color = lineColor,
+                start = Offset(left, top),
+                end = Offset(left + cornerLength, top),
+                strokeWidth = lineStrokeWidth,
+                cap = StrokeCap.Square,
+            )
+            drawLine(
+                color = lineColor,
+                start = Offset(left, top),
+                end = Offset(left, top + cornerLength),
+                strokeWidth = lineStrokeWidth,
+                cap = StrokeCap.Square,
+            )
+            drawLine(
+                color = lineColor,
+                start = Offset(right - cornerLength, top),
+                end = Offset(right, top),
+                strokeWidth = lineStrokeWidth,
+                cap = StrokeCap.Square,
+            )
+            drawLine(
+                color = lineColor,
+                start = Offset(right, top),
+                end = Offset(right, top + cornerLength),
+                strokeWidth = lineStrokeWidth,
+                cap = StrokeCap.Square,
+            )
+            drawLine(
+                color = lineColor,
+                start = Offset(left, bottom),
+                end = Offset(left + cornerLength, bottom),
+                strokeWidth = lineStrokeWidth,
+                cap = StrokeCap.Square,
+            )
+            drawLine(
+                color = lineColor,
+                start = Offset(left, bottom - cornerLength),
+                end = Offset(left, bottom),
+                strokeWidth = lineStrokeWidth,
+                cap = StrokeCap.Square,
+            )
+            drawLine(
+                color = lineColor,
+                start = Offset(right - cornerLength, bottom),
+                end = Offset(right, bottom),
+                strokeWidth = lineStrokeWidth,
+                cap = StrokeCap.Square,
+            )
+            drawLine(
+                color = lineColor,
+                start = Offset(right, bottom - cornerLength),
+                end = Offset(right, bottom),
+                strokeWidth = lineStrokeWidth,
+                cap = StrokeCap.Square,
+            )
+            drawLine(
+                color = lineColor,
+                start = Offset(center.x - crossHalfLength, center.y),
+                end = Offset(center.x + crossHalfLength, center.y),
+                strokeWidth = lineStrokeWidth,
+                cap = StrokeCap.Square,
+            )
+            drawLine(
+                color = lineColor,
+                start = Offset(center.x, center.y - crossHalfLength),
+                end = Offset(center.x, center.y + crossHalfLength),
+                strokeWidth = lineStrokeWidth,
+                cap = StrokeCap.Square,
+            )
+        }
+
+        drawReticleLines(contrastColor, contrastStrokeWidth)
+        drawReticleLines(color, strokeWidth)
     }
 }
 
 private const val DEFAULT_ZOOM_RATIO = 1f
 private const val ZOOM_UPDATE_EPSILON = 0.01f
+private const val RETICLE_ALPHA = 0.78f
