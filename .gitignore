@@ -1,6 +1,8 @@
 *.iml
 .gradle
 /local.properties
+/.idea/
+/.gradle-home/
 /.idea/caches
 /.idea/libraries
 /.idea/modules.xml
@@ -14,3 +16,4 @@
 .cxx
 local.properties
 /INTRO.md
+/design/
