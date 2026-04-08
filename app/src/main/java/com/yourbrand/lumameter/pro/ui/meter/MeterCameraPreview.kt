@@ -48,6 +48,7 @@ fun MeterCameraPreview(
     meteringPoint: MeteringPoint,
     isAeLocked: Boolean,
     requestedZoomRatio: Float,
+    showGuideGrid: Boolean,
     onMeteringPointChanged: (MeteringPoint) -> Unit,
     onPreviewTapped: () -> Unit,
     onReadingAvailable: (LuminanceReading) -> Unit,
@@ -205,6 +206,10 @@ fun MeterCameraPreview(
             modifier = Modifier.fillMaxSize(),
         )
 
+        if (showGuideGrid) {
+            GuideGridOverlay()
+        }
+
         MeterReticle(
             meteringPoint = meteringPoint,
             isAeLocked = isAeLocked,
@@ -252,6 +257,45 @@ private fun Throwable.isZoomRequestCancellation(): Boolean {
         current = current.cause
     }
     return false
+}
+
+@Composable
+private fun GuideGridOverlay(
+    modifier: Modifier = Modifier,
+) {
+    val density = LocalDensity.current
+    val strokeWidth = with(density) { 1.dp.toPx() }
+    val lineColor = Color(0xFFB5B5B5).copy(alpha = GUIDE_GRID_ALPHA)
+
+    Canvas(modifier = modifier.fillMaxSize()) {
+        val verticalStep = size.width / 3f
+        val horizontalStep = size.height / 3f
+
+        drawLine(
+            color = lineColor,
+            start = Offset(verticalStep, 0f),
+            end = Offset(verticalStep, size.height),
+            strokeWidth = strokeWidth,
+        )
+        drawLine(
+            color = lineColor,
+            start = Offset(verticalStep * 2f, 0f),
+            end = Offset(verticalStep * 2f, size.height),
+            strokeWidth = strokeWidth,
+        )
+        drawLine(
+            color = lineColor,
+            start = Offset(0f, horizontalStep),
+            end = Offset(size.width, horizontalStep),
+            strokeWidth = strokeWidth,
+        )
+        drawLine(
+            color = lineColor,
+            start = Offset(0f, horizontalStep * 2f),
+            end = Offset(size.width, horizontalStep * 2f),
+            strokeWidth = strokeWidth,
+        )
+    }
 }
 
 @Composable
@@ -362,4 +406,5 @@ private fun MeterReticle(
 
 private const val DEFAULT_ZOOM_RATIO = 1f
 private const val ZOOM_UPDATE_EPSILON = 0.01f
+private const val GUIDE_GRID_ALPHA = 0.42f
 private const val RETICLE_ALPHA = 0.78f

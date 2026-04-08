@@ -34,6 +34,11 @@ class MainActivity : ComponentActivity() {
                     preferences.getBoolean(KEY_LIVE_METERING_ENABLED, true),
                 )
             }
+            var guideGridEnabled by rememberSaveable {
+                mutableStateOf(
+                    preferences.getBoolean(KEY_GUIDE_GRID_ENABLED, false),
+                )
+            }
 
             LaunchedEffect(themeMode) {
                 preferences.edit()
@@ -45,6 +50,11 @@ class MainActivity : ComponentActivity() {
                     .putBoolean(KEY_LIVE_METERING_ENABLED, liveMeteringEnabled)
                     .apply()
             }
+            LaunchedEffect(guideGridEnabled) {
+                preferences.edit()
+                    .putBoolean(KEY_GUIDE_GRID_ENABLED, guideGridEnabled)
+                    .apply()
+            }
 
             LumaMeterTheme(themeMode = themeMode) {
                 MeterRoute(
@@ -52,6 +62,8 @@ class MainActivity : ComponentActivity() {
                     onThemeModeChanged = { themeMode = it },
                     liveMeteringEnabled = liveMeteringEnabled,
                     onLiveMeteringEnabledChanged = { liveMeteringEnabled = it },
+                    guideGridEnabled = guideGridEnabled,
+                    onGuideGridEnabledChanged = { guideGridEnabled = it },
                 )
             }
         }
@@ -61,5 +73,6 @@ class MainActivity : ComponentActivity() {
         const val THEME_PREFS_NAME = "luma_meter_prefs"
         const val KEY_THEME_MODE = "theme_mode"
         const val KEY_LIVE_METERING_ENABLED = "live_metering_enabled"
+        const val KEY_GUIDE_GRID_ENABLED = "guide_grid_enabled"
     }
 }
