@@ -56,6 +56,8 @@ import androidx.compose.material.icons.rounded.BrightnessAuto
 import androidx.compose.material.icons.rounded.CameraAlt
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.DeleteOutline
+import androidx.compose.material.icons.rounded.GridOff
+import androidx.compose.material.icons.rounded.GridOn
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.LockOpen
 import androidx.compose.material.icons.rounded.PhotoCamera
@@ -166,6 +168,8 @@ fun MeterRoute(
     onThemeModeChanged: (AppThemeMode) -> Unit,
     liveMeteringEnabled: Boolean,
     onLiveMeteringEnabledChanged: (Boolean) -> Unit,
+    guideGridEnabled: Boolean,
+    onGuideGridEnabledChanged: (Boolean) -> Unit,
     viewModel: MeterViewModel = viewModel(),
 ) {
     val context = LocalContext.current
@@ -286,6 +290,7 @@ fun MeterRoute(
                 onIsoSelected = viewModel::setIso,
                 onCompensationChanged = viewModel::setCompensation,
                 onAeLockToggled = viewModel::toggleAeLock,
+                showGuideGrid = guideGridEnabled,
                 onPreviewTapped = viewModel::requestManualMetering,
                 onOpenModeSheet = { activeSheet = MeterSheet.EXPOSURE_MODE },
                 onOpenCalibration = { activeSheet = MeterSheet.CALIBRATION },
@@ -305,6 +310,8 @@ fun MeterRoute(
                 onThemeModeChanged = onThemeModeChanged,
                 liveMeteringEnabled = liveMeteringEnabled,
                 onLiveMeteringEnabledChanged = onLiveMeteringEnabledChanged,
+                guideGridEnabled = guideGridEnabled,
+                onGuideGridEnabledChanged = onGuideGridEnabledChanged,
                 onBack = { currentPage = MeterPage.MAIN },
             )
 
@@ -365,6 +372,7 @@ private fun MeterMainPage(
     onIsoSelected: (Int) -> Unit,
     onCompensationChanged: (Float) -> Unit,
     onAeLockToggled: () -> Unit,
+    showGuideGrid: Boolean,
     onPreviewTapped: () -> Unit,
     onOpenModeSheet: () -> Unit,
     onOpenCalibration: () -> Unit,
@@ -428,6 +436,7 @@ private fun MeterMainPage(
                                 onMeteringPointChanged = onMeteringPointChanged,
                                 onZoomCapabilityResolved = onZoomCapabilityResolved,
                                 onZoomRatioChanged = onZoomRatioChanged,
+                                showGuideGrid = showGuideGrid,
                                 onPreviewTapped = onPreviewTapped,
                             )
                             ExposureSummaryRow(
@@ -642,6 +651,7 @@ private fun PreviewSection(
     onMeteringPointChanged: (MeteringPoint) -> Unit,
     onZoomCapabilityResolved: (Float, Float) -> Unit,
     onZoomRatioChanged: (Float) -> Unit,
+    showGuideGrid: Boolean,
     onPreviewTapped: () -> Unit,
 ) {
     var zoomControlMode by rememberSaveable(uiState.isZoomSupported) {
@@ -658,6 +668,7 @@ private fun PreviewSection(
             onMeteringPointChanged = onMeteringPointChanged,
             onZoomCapabilityResolved = onZoomCapabilityResolved,
             onZoomRatioChanged = onZoomRatioChanged,
+            showGuideGrid = showGuideGrid,
             onPreviewTapped = onPreviewTapped,
         )
 
@@ -681,6 +692,7 @@ private fun PreviewCard(
     onMeteringPointChanged: (MeteringPoint) -> Unit,
     onZoomCapabilityResolved: (Float, Float) -> Unit,
     onZoomRatioChanged: (Float) -> Unit,
+    showGuideGrid: Boolean,
     onPreviewTapped: () -> Unit,
 ) {
     Surface(
@@ -701,6 +713,7 @@ private fun PreviewCard(
                 meteringPoint = uiState.meteringPoint,
                 isAeLocked = uiState.isAeLocked,
                 requestedZoomRatio = uiState.zoomRatio,
+                showGuideGrid = showGuideGrid,
                 onMeteringPointChanged = onMeteringPointChanged,
                 onPreviewTapped = onPreviewTapped,
                 onReadingAvailable = onReadingAvailable,
@@ -1347,6 +1360,8 @@ private fun SettingsPage(
     onThemeModeChanged: (AppThemeMode) -> Unit,
     liveMeteringEnabled: Boolean,
     onLiveMeteringEnabledChanged: (Boolean) -> Unit,
+    guideGridEnabled: Boolean,
+    onGuideGridEnabledChanged: (Boolean) -> Unit,
     onBack: () -> Unit,
 ) {
     Box(
@@ -1395,7 +1410,23 @@ private fun SettingsPage(
                             stringResource(R.string.settings_single_metering_description)
                         },
                         checked = liveMeteringEnabled,
+                        checkedIcon = Icons.Rounded.PhotoCamera,
+                        uncheckedIcon = Icons.Rounded.CameraAlt,
                         onCheckedChange = onLiveMeteringEnabledChanged,
+                    )
+
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = stringResource(R.string.settings_preview_title),
+                        style = MaterialTheme.typography.titleLarge,
+                    )
+                    SettingsToggleCard(
+                        title = stringResource(R.string.settings_reference_grid),
+                        subtitle = stringResource(R.string.settings_reference_grid_description),
+                        checked = guideGridEnabled,
+                        checkedIcon = Icons.Rounded.GridOn,
+                        uncheckedIcon = Icons.Rounded.GridOff,
+                        onCheckedChange = onGuideGridEnabledChanged,
                     )
 
                     Spacer(modifier = Modifier.height(4.dp))
@@ -1441,6 +1472,8 @@ private fun SettingsToggleCard(
     title: String,
     subtitle: String,
     checked: Boolean,
+    checkedIcon: ImageVector,
+    uncheckedIcon: ImageVector,
     onCheckedChange: (Boolean) -> Unit,
 ) {
     Surface(
@@ -1465,7 +1498,7 @@ private fun SettingsToggleCard(
             ) {
                 Icon(
                     modifier = Modifier.padding(12.dp),
-                    imageVector = if (checked) Icons.Rounded.PhotoCamera else Icons.Rounded.CameraAlt,
+                    imageVector = if (checked) checkedIcon else uncheckedIcon,
                     contentDescription = null,
                     tint = if (checked) {
                         MaterialTheme.colorScheme.primary
