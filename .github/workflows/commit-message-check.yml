@@ -1,0 +1,79 @@
+name: Commit Message Check
+on:
+  pull_request:
+    types: [ opened, synchronize, reopened, ready_for_review ]
+
+permissions:
+  contents: read
+
+jobs:
+  commit-message:
+    name: commit-message
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Fetch base branch
+        shell: bash
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin "${BASE_REF}:refs/remotes/origin/${BASE_REF}"
+
+      - name: Validate commit subjects
+        shell: bash
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -euo pipefail
+          
+          CONVENTIONAL='^(fixup! |squash! )?(feat|fix|chore|docs|style|refactor|perf|test|build|ci|revert)(\([A-Za-z0-9._/-]+\))?(!)?: [a-z0-9].+'
+          IGNORED='^(Merge|Revert ")'
+          
+          bad=0
+          
+          while IFS= read -r sha; do
+            subject="$(git log --format=%s -n 1 "$sha")"
+          
+            if [[ -z "$subject" ]]; then
+              echo "::error title=Empty commit subject::$sha has an empty subject"
+              bad=1
+              continue
+            fi
+          
+            if [[ "$subject" =~ $IGNORED ]]; then
+              continue
+            fi
+          
+            if [[ "$subject" =~ $CONVENTIONAL ]]; then
+              continue
+            fi
+          
+            echo "::error title=Invalid commit message::$sha -> $subject"
+            bad=1
+          done < <(git rev-list --reverse "refs/remotes/origin/${BASE_REF}..HEAD")
+          
+          if [[ "$bad" -ne 0 ]]; then
+            cat <<'EOF'
+            Invalid commit message subject.
+            Expected: <type>(optional-scope): <description>
+          
+            Examples:
+            feat(settings): add preview reference grid
+            feat: add AE lock toggle
+            fix(camera): stop preview crash on resume
+            docs: document git hook setup
+          
+            Allowed types: feat, fix, chore, docs, style, refactor, perf, test, build, ci, revert
+          
+            Rejected examples:
+            Stop tracking local tool folders
+            feat: Stop tracking local tool folders
+            EOF
+            exit 1
+          fi
