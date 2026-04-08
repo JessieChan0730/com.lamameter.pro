@@ -59,21 +59,20 @@ jobs:
           done < <(git rev-list --reverse "refs/remotes/origin/${BASE_REF}..HEAD")
           
           if [[ "$bad" -ne 0 ]]; then
-            cat <<'EOF'
-            Invalid commit message subject.
-            Expected: <type>(optional-scope): <description>
-          
-            Examples:
-            feat(settings): add preview reference grid
-            feat: add AE lock toggle
-            fix(camera): stop preview crash on resume
-            docs: document git hook setup
-          
-            Allowed types: feat, fix, chore, docs, style, refactor, perf, test, build, ci, revert
-          
-            Rejected examples:
-            Stop tracking local tool folders
-            feat: Stop tracking local tool folders
-            EOF
+            printf '%s\n' \
+              'Invalid commit message subject.' \
+              'Expected: <type>(optional-scope): <description>' \
+              '' \
+              'Examples:' \
+              'feat(settings): add preview reference grid' \
+              'feat: add AE lock toggle' \
+              'fix(camera): stop preview crash on resume' \
+              'docs: document git hook setup' \
+              '' \
+              'Allowed types: feat, fix, chore, docs, style, refactor, perf, test, build, ci, revert' \
+              '' \
+              'Rejected examples:' \
+              'Stop tracking local tool folders' \
+              'feat: Stop tracking local tool folders'
             exit 1
           fi
