@@ -156,6 +156,7 @@ Notes:
 - Only the first line is validated
 - The second `-m` value, if provided, is treated as the commit body and is not restricted
 - Git-generated merge commits and `git revert` messages are allowed
+- The description should start with a lowercase word, for example `feat(settings): add preview reference grid`
 
 Valid example:
 
@@ -165,8 +166,10 @@ git commit -m "feat: add commit message validation" -m "Document the workflow in
 
 Rejected examples:
 
+- `Stop tracking local tool folders`
 - `update readme`
 - `feature: add AE lock`
+- `feat: Stop tracking local tool folders`
 - `fix add camera state`
 
 ## Pull Request Guidelines

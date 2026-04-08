@@ -1,7 +1,7 @@
 #!/bin/sh
 
 COMMIT_MSG_FILE=$1
-CONVENTIONAL_COMMIT_PATTERN='^(fixup! |squash! )?(feat|fix|chore|docs|style|refactor|perf|test|build|ci|revert)(\([A-Za-z0-9._/-]+\))?(!)?: .+'
+CONVENTIONAL_COMMIT_PATTERN='^(fixup! |squash! )?(feat|fix|chore|docs|style|refactor|perf|test|build|ci|revert)(\([A-Za-z0-9._/-]+\))?(!)?: [a-z0-9].+'
 IGNORED_PATTERN='^(Merge|Revert ")'
 
 if [ ! -f "$COMMIT_MSG_FILE" ]; then
@@ -31,12 +31,17 @@ Expected:
   <type>(optional-scope): <description>
 
 Examples:
+  feat(settings): add preview reference grid
   feat: add AE lock toggle
   fix(camera): stop preview crash on resume
   docs: document git hook setup
 
 Allowed types:
   feat, fix, chore, docs, style, refactor, perf, test, build, ci, revert
+
+Rejected examples:
+  Stop tracking local tool folders
+  feat: Stop tracking local tool folders
 EOF
 
 exit 1
