@@ -153,20 +153,22 @@ Allowed types:
 
 Notes:
 
-- Only the first line is validated
-- The second `-m` value, if provided, is treated as the commit body and is not restricted
+- Only the first line is validated; a second `-m` value is treated as commit body text and is not restricted
 - Git-generated merge commits and `git revert` messages are allowed
-- The description should start with a lowercase word, for example `feat(settings): add preview reference grid`
+- The description must start with a lowercase letter or digit; an uppercase opening like `feat: Stop tracking local tool folders` is rejected
+- If you use only one `-m`, that value is the commit subject, so `git commit -m "Document the workflow in CONTRIBUTING.md."` is rejected
+- Use a lowercase subject even when the changed file name is uppercase, for example `docs: document CONTRIBUTING.md workflow`
 
 Valid example:
 
 ```bash
-git commit -m "feat: add commit message validation" -m "Document the workflow in CONTRIBUTING.md."
+git commit -m "feat: add commit message validation" -m "document the workflow in CONTRIBUTING.md."
 ```
 
 Rejected examples:
 
 - `Stop tracking local tool folders`
+- `Document the workflow in CONTRIBUTING.md.`
 - `update readme`
 - `feature: add AE lock`
 - `feat: Stop tracking local tool folders`
