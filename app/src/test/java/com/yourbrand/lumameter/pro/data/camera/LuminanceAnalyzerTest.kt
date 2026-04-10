@@ -127,6 +127,31 @@ class LuminanceAnalyzerTest {
         assertTrue(image.isClosed)
     }
 
+    @Test
+    fun `histogram bins match sampled pixel counts`() {
+        val image = fakeImageProxy(
+            width = 4,
+            height = 4,
+        ) { x, y ->
+            if (x < 2) 50 else 200
+        }
+
+        val reading = analyze(
+            image = image,
+            meteringMode = MeteringMode.AVERAGE,
+            meteringPoint = MeteringPoint.Center,
+        )
+
+        assertNotNull(reading)
+        val histogram = reading!!.histogram
+        assertEquals(LuminanceReading.HISTOGRAM_BIN_COUNT, histogram.size)
+        val totalSamples = histogram.sum()
+        assertTrue(totalSamples > 0)
+        assertTrue(histogram[50] > 0)
+        assertTrue(histogram[200] > 0)
+        assertEquals(totalSamples, histogram[50] + histogram[200])
+    }
+
     private fun analyze(
         image: FakeImageProxy,
         meteringMode: MeteringMode,

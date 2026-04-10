@@ -24,6 +24,7 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -56,6 +57,7 @@ import androidx.compose.material.icons.rounded.BrightnessAuto
 import androidx.compose.material.icons.rounded.CameraAlt
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.DeleteOutline
+import androidx.compose.material.icons.rounded.Equalizer
 import androidx.compose.material.icons.rounded.GridOff
 import androidx.compose.material.icons.rounded.GridOn
 import androidx.compose.material.icons.rounded.Lock
@@ -120,6 +122,7 @@ import com.yourbrand.lumameter.pro.domain.exposure.ExposureMode
 import com.yourbrand.lumameter.pro.domain.exposure.LuminanceReading
 import com.yourbrand.lumameter.pro.domain.exposure.MeteringMode
 import com.yourbrand.lumameter.pro.domain.exposure.MeteringPoint
+import com.yourbrand.lumameter.pro.ui.components.HistogramChart
 import com.yourbrand.lumameter.pro.ui.components.MeterChoiceChip
 import com.yourbrand.lumameter.pro.ui.components.MeterPanel
 import com.yourbrand.lumameter.pro.ui.theme.AppThemeMode
@@ -170,6 +173,8 @@ fun MeterRoute(
     onLiveMeteringEnabledChanged: (Boolean) -> Unit,
     guideGridEnabled: Boolean,
     onGuideGridEnabledChanged: (Boolean) -> Unit,
+    histogramEnabled: Boolean,
+    onHistogramEnabledChanged: (Boolean) -> Unit,
     viewModel: MeterViewModel = viewModel(),
 ) {
     val context = LocalContext.current
@@ -291,6 +296,7 @@ fun MeterRoute(
                 onCompensationChanged = viewModel::setCompensation,
                 onAeLockToggled = viewModel::toggleAeLock,
                 showGuideGrid = guideGridEnabled,
+                showHistogram = histogramEnabled,
                 onPreviewTapped = viewModel::requestManualMetering,
                 onOpenModeSheet = { activeSheet = MeterSheet.EXPOSURE_MODE },
                 onOpenCalibration = { activeSheet = MeterSheet.CALIBRATION },
@@ -312,6 +318,8 @@ fun MeterRoute(
                 onLiveMeteringEnabledChanged = onLiveMeteringEnabledChanged,
                 guideGridEnabled = guideGridEnabled,
                 onGuideGridEnabledChanged = onGuideGridEnabledChanged,
+                histogramEnabled = histogramEnabled,
+                onHistogramEnabledChanged = onHistogramEnabledChanged,
                 onBack = { currentPage = MeterPage.MAIN },
             )
 
@@ -373,6 +381,7 @@ private fun MeterMainPage(
     onCompensationChanged: (Float) -> Unit,
     onAeLockToggled: () -> Unit,
     showGuideGrid: Boolean,
+    showHistogram: Boolean,
     onPreviewTapped: () -> Unit,
     onOpenModeSheet: () -> Unit,
     onOpenCalibration: () -> Unit,
@@ -437,6 +446,7 @@ private fun MeterMainPage(
                                 onZoomCapabilityResolved = onZoomCapabilityResolved,
                                 onZoomRatioChanged = onZoomRatioChanged,
                                 showGuideGrid = showGuideGrid,
+                                showHistogram = showHistogram,
                                 onPreviewTapped = onPreviewTapped,
                             )
                             ExposureSummaryRow(
@@ -652,6 +662,7 @@ private fun PreviewSection(
     onZoomCapabilityResolved: (Float, Float) -> Unit,
     onZoomRatioChanged: (Float) -> Unit,
     showGuideGrid: Boolean,
+    showHistogram: Boolean,
     onPreviewTapped: () -> Unit,
 ) {
     var zoomControlMode by rememberSaveable(uiState.isZoomSupported) {
@@ -669,6 +680,7 @@ private fun PreviewSection(
             onZoomCapabilityResolved = onZoomCapabilityResolved,
             onZoomRatioChanged = onZoomRatioChanged,
             showGuideGrid = showGuideGrid,
+            showHistogram = showHistogram,
             onPreviewTapped = onPreviewTapped,
         )
 
@@ -693,6 +705,7 @@ private fun PreviewCard(
     onZoomCapabilityResolved: (Float, Float) -> Unit,
     onZoomRatioChanged: (Float) -> Unit,
     showGuideGrid: Boolean,
+    showHistogram: Boolean,
     onPreviewTapped: () -> Unit,
 ) {
     Surface(
@@ -735,6 +748,19 @@ private fun PreviewCard(
                         )
                     ),
             )
+
+            if (showHistogram) {
+                val histogram = uiState.liveReading?.histogram
+                if (histogram != null) {
+                    HistogramChart(
+                        histogram = histogram,
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(8.dp)
+                            .size(width = 120.dp, height = 72.dp),
+                    )
+                }
+            }
 
             Text(
                 text = if (uiState.isLiveMeteringEnabled) {
@@ -1362,8 +1388,12 @@ private fun SettingsPage(
     onLiveMeteringEnabledChanged: (Boolean) -> Unit,
     guideGridEnabled: Boolean,
     onGuideGridEnabledChanged: (Boolean) -> Unit,
+    histogramEnabled: Boolean,
+    onHistogramEnabledChanged: (Boolean) -> Unit,
     onBack: () -> Unit,
 ) {
+    val scrollState = rememberScrollState()
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -1380,6 +1410,7 @@ private fun SettingsPage(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .verticalScroll(scrollState)
                 .safeDrawingPadding()
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
@@ -1427,6 +1458,14 @@ private fun SettingsPage(
                         checkedIcon = Icons.Rounded.GridOn,
                         uncheckedIcon = Icons.Rounded.GridOff,
                         onCheckedChange = onGuideGridEnabledChanged,
+                    )
+                    SettingsToggleCard(
+                        title = stringResource(R.string.settings_histogram),
+                        subtitle = stringResource(R.string.settings_histogram_description),
+                        checked = histogramEnabled,
+                        checkedIcon = Icons.Rounded.Equalizer,
+                        uncheckedIcon = Icons.Rounded.Equalizer,
+                        onCheckedChange = onHistogramEnabledChanged,
                     )
 
                     Spacer(modifier = Modifier.height(4.dp))

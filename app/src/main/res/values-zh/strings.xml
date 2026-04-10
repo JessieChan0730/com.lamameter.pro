@@ -55,6 +55,8 @@
     <string name="settings_preview_title">&#x53D6;&#x666F;</string>
     <string name="settings_reference_grid">&#x5F00;&#x542F;&#x53C2;&#x8003;&#x7EBF;</string>
     <string name="settings_reference_grid_description">&#x5728;&#x53D6;&#x666F;&#x6846;&#x4E0A;&#x663E;&#x793A;&#x7070;&#x8272;&#x534A;&#x900F;&#x660E;&#x4E5D;&#x5BAB;&#x683C;&#xFF0C;&#x65B9;&#x4FBF;&#x6784;&#x56FE;&#x53C2;&#x8003;&#x3002;</string>
+    <string name="settings_histogram">亮度直方图</string>
+    <string name="settings_histogram_description">在取景框右上角显示亮度直方图，用于判断画面曝光分布。</string>
     <string name="settings_theme_title">应用主题</string>
     <string name="settings_theme_description">选择 LumaMeter 在日间与夜间的界面外观。</string>
     <string name="theme_system">跟随系统</string>
