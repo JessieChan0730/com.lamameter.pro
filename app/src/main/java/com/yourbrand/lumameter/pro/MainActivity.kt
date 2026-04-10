@@ -39,6 +39,11 @@ class MainActivity : ComponentActivity() {
                     preferences.getBoolean(KEY_GUIDE_GRID_ENABLED, false),
                 )
             }
+            var histogramEnabled by rememberSaveable {
+                mutableStateOf(
+                    preferences.getBoolean(KEY_HISTOGRAM_ENABLED, false),
+                )
+            }
 
             LaunchedEffect(themeMode) {
                 preferences.edit()
@@ -55,6 +60,11 @@ class MainActivity : ComponentActivity() {
                     .putBoolean(KEY_GUIDE_GRID_ENABLED, guideGridEnabled)
                     .apply()
             }
+            LaunchedEffect(histogramEnabled) {
+                preferences.edit()
+                    .putBoolean(KEY_HISTOGRAM_ENABLED, histogramEnabled)
+                    .apply()
+            }
 
             LumaMeterTheme(themeMode = themeMode) {
                 MeterRoute(
@@ -64,6 +74,8 @@ class MainActivity : ComponentActivity() {
                     onLiveMeteringEnabledChanged = { liveMeteringEnabled = it },
                     guideGridEnabled = guideGridEnabled,
                     onGuideGridEnabledChanged = { guideGridEnabled = it },
+                    histogramEnabled = histogramEnabled,
+                    onHistogramEnabledChanged = { histogramEnabled = it },
                 )
             }
         }
@@ -74,5 +86,6 @@ class MainActivity : ComponentActivity() {
         const val KEY_THEME_MODE = "theme_mode"
         const val KEY_LIVE_METERING_ENABLED = "live_metering_enabled"
         const val KEY_GUIDE_GRID_ENABLED = "guide_grid_enabled"
+        const val KEY_HISTOGRAM_ENABLED = "histogram_enabled"
     }
 }

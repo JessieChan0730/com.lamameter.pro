@@ -33,6 +33,7 @@ class LuminanceAnalyzer(
                 rotationDegrees = image.imageInfo.rotationDegrees,
             )
 
+            val histogram = IntArray(LuminanceReading.HISTOGRAM_BIN_COUNT)
             var sampleCount = 0
             var averageSum = 0.0
             var centerWeightedSum = 0.0
@@ -53,6 +54,7 @@ class LuminanceAnalyzer(
                     val luma = buffer.get(byteIndex).toInt() and 0xFF
                     val lumaDouble = luma.toDouble()
 
+                    histogram[luma]++
                     averageSum += lumaDouble
                     sampleCount += 1
 
@@ -88,6 +90,7 @@ class LuminanceAnalyzer(
                     rotationDegrees = image.imageInfo.rotationDegrees,
                     meteringMode = meteringMode,
                     meteringPoint = mappedPoint,
+                    histogram = histogram,
                 )
             )
         } finally {

@@ -35,7 +35,37 @@ data class LuminanceReading(
     val rotationDegrees: Int,
     val meteringMode: MeteringMode,
     val meteringPoint: MeteringPoint,
-)
+    val histogram: IntArray = IntArray(HISTOGRAM_BIN_COUNT),
+) {
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is LuminanceReading) return false
+        return meteredLuma == other.meteredLuma &&
+            averageLuma == other.averageLuma &&
+            frameWidth == other.frameWidth &&
+            frameHeight == other.frameHeight &&
+            rotationDegrees == other.rotationDegrees &&
+            meteringMode == other.meteringMode &&
+            meteringPoint == other.meteringPoint &&
+            histogram.contentEquals(other.histogram)
+    }
+
+    override fun hashCode(): Int {
+        var result = meteredLuma.hashCode()
+        result = 31 * result + averageLuma.hashCode()
+        result = 31 * result + frameWidth
+        result = 31 * result + frameHeight
+        result = 31 * result + rotationDegrees
+        result = 31 * result + meteringMode.hashCode()
+        result = 31 * result + meteringPoint.hashCode()
+        result = 31 * result + histogram.contentHashCode()
+        return result
+    }
+
+    companion object {
+        const val HISTOGRAM_BIN_COUNT = 256
+    }
+}
 
 data class ExposureResult(
     val sceneEv100: Double,
