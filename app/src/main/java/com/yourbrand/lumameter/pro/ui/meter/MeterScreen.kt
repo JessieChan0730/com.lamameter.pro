@@ -122,6 +122,7 @@ import com.yourbrand.lumameter.pro.domain.exposure.ExposureMode
 import com.yourbrand.lumameter.pro.domain.exposure.LuminanceReading
 import com.yourbrand.lumameter.pro.domain.exposure.MeteringMode
 import com.yourbrand.lumameter.pro.domain.exposure.MeteringPoint
+import com.yourbrand.lumameter.pro.domain.exposure.ViewfinderAspectRatio
 import com.yourbrand.lumameter.pro.ui.components.HistogramChart
 import com.yourbrand.lumameter.pro.ui.components.MeterChoiceChip
 import com.yourbrand.lumameter.pro.ui.components.MeterPanel
@@ -175,6 +176,8 @@ fun MeterRoute(
     onGuideGridEnabledChanged: (Boolean) -> Unit,
     histogramEnabled: Boolean,
     onHistogramEnabledChanged: (Boolean) -> Unit,
+    viewfinderAspectRatio: ViewfinderAspectRatio,
+    onViewfinderAspectRatioChanged: (ViewfinderAspectRatio) -> Unit,
     viewModel: MeterViewModel = viewModel(),
 ) {
     val context = LocalContext.current
@@ -297,6 +300,7 @@ fun MeterRoute(
                 onAeLockToggled = viewModel::toggleAeLock,
                 showGuideGrid = guideGridEnabled,
                 showHistogram = histogramEnabled,
+                viewfinderAspectRatio = viewfinderAspectRatio,
                 onPreviewTapped = viewModel::requestManualMetering,
                 onOpenModeSheet = { activeSheet = MeterSheet.EXPOSURE_MODE },
                 onOpenCalibration = { activeSheet = MeterSheet.CALIBRATION },
@@ -320,6 +324,8 @@ fun MeterRoute(
                 onGuideGridEnabledChanged = onGuideGridEnabledChanged,
                 histogramEnabled = histogramEnabled,
                 onHistogramEnabledChanged = onHistogramEnabledChanged,
+                viewfinderAspectRatio = viewfinderAspectRatio,
+                onViewfinderAspectRatioChanged = onViewfinderAspectRatioChanged,
                 onBack = { currentPage = MeterPage.MAIN },
             )
 
@@ -382,6 +388,7 @@ private fun MeterMainPage(
     onAeLockToggled: () -> Unit,
     showGuideGrid: Boolean,
     showHistogram: Boolean,
+    viewfinderAspectRatio: ViewfinderAspectRatio,
     onPreviewTapped: () -> Unit,
     onOpenModeSheet: () -> Unit,
     onOpenCalibration: () -> Unit,
@@ -447,6 +454,7 @@ private fun MeterMainPage(
                                 onZoomRatioChanged = onZoomRatioChanged,
                                 showGuideGrid = showGuideGrid,
                                 showHistogram = showHistogram,
+                                viewfinderAspectRatio = viewfinderAspectRatio,
                                 onPreviewTapped = onPreviewTapped,
                             )
                             ExposureSummaryRow(
@@ -663,6 +671,7 @@ private fun PreviewSection(
     onZoomRatioChanged: (Float) -> Unit,
     showGuideGrid: Boolean,
     showHistogram: Boolean,
+    viewfinderAspectRatio: ViewfinderAspectRatio,
     onPreviewTapped: () -> Unit,
 ) {
     var zoomControlMode by rememberSaveable(uiState.isZoomSupported) {
@@ -681,6 +690,7 @@ private fun PreviewSection(
             onZoomRatioChanged = onZoomRatioChanged,
             showGuideGrid = showGuideGrid,
             showHistogram = showHistogram,
+            viewfinderAspectRatio = viewfinderAspectRatio,
             onPreviewTapped = onPreviewTapped,
         )
 
@@ -706,6 +716,7 @@ private fun PreviewCard(
     onZoomRatioChanged: (Float) -> Unit,
     showGuideGrid: Boolean,
     showHistogram: Boolean,
+    viewfinderAspectRatio: ViewfinderAspectRatio,
     onPreviewTapped: () -> Unit,
 ) {
     Surface(
@@ -715,15 +726,16 @@ private fun PreviewCard(
         shape = RoundedCornerShape(18.dp),
         color = Color.Black.copy(alpha = 0.08f),
     ) {
-        Box(
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxWidth()
-                .aspectRatio(4f / 3f),
+                .aspectRatio(viewfinderAspectRatio.ratio),
         ) {
             MeterCameraPreview(
                 modifier = Modifier.fillMaxSize(),
                 meteringMode = uiState.meteringMode,
                 meteringPoint = uiState.meteringPoint,
+                viewfinderAspectRatio = viewfinderAspectRatio,
                 isAeLocked = uiState.isAeLocked,
                 requestedZoomRatio = uiState.zoomRatio,
                 showGuideGrid = showGuideGrid,
@@ -757,11 +769,17 @@ private fun PreviewCard(
                         modifier = Modifier
                             .align(Alignment.TopEnd)
                             .padding(8.dp)
-                            .size(width = 120.dp, height = 72.dp),
+                            .size(
+                                width = (maxWidth * 0.34f)
+                                    .coerceAtLeast(92.dp)
+                                    .coerceAtMost(120.dp),
+                                height = (maxHeight * 0.22f)
+                                    .coerceAtLeast(56.dp)
+                                    .coerceAtMost(72.dp),
+                            ),
                     )
                 }
             }
-
             Text(
                 text = if (uiState.isLiveMeteringEnabled) {
                     stringResource(R.string.tap_to_reposition_meter)
@@ -770,9 +788,12 @@ private fun PreviewCard(
                 },
                 modifier = Modifier
                     .align(Alignment.BottomStart)
+                    .fillMaxWidth(0.72f)
                     .padding(14.dp),
                 style = MaterialTheme.typography.labelLarge,
                 color = Color.White.copy(alpha = 0.92f),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
             )
         }
     }
@@ -1390,6 +1411,8 @@ private fun SettingsPage(
     onGuideGridEnabledChanged: (Boolean) -> Unit,
     histogramEnabled: Boolean,
     onHistogramEnabledChanged: (Boolean) -> Unit,
+    viewfinderAspectRatio: ViewfinderAspectRatio,
+    onViewfinderAspectRatioChanged: (ViewfinderAspectRatio) -> Unit,
     onBack: () -> Unit,
 ) {
     val scrollState = rememberScrollState()
@@ -1453,6 +1476,10 @@ private fun SettingsPage(
                         text = stringResource(R.string.settings_preview_title),
                         style = MaterialTheme.typography.titleLarge,
                     )
+                    ViewfinderAspectRatioCard(
+                        selectedAspectRatio = viewfinderAspectRatio,
+                        onAspectRatioSelected = onViewfinderAspectRatioChanged,
+                    )
                     SettingsToggleCard(
                         title = stringResource(R.string.settings_reference_grid),
                         subtitle = stringResource(R.string.settings_reference_grid_description),
@@ -1501,6 +1528,52 @@ private fun SettingsPage(
                         icon = Icons.Rounded.Brightness4,
                         selected = themeMode == AppThemeMode.DARK,
                         onClick = { onThemeModeChanged(AppThemeMode.DARK) },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ViewfinderAspectRatioCard(
+    selectedAspectRatio: ViewfinderAspectRatio,
+    onAspectRatioSelected: (ViewfinderAspectRatio) -> Unit,
+) {
+    val ratioScrollState = rememberScrollState()
+
+    Surface(
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.settings_viewfinder_ratio),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                text = stringResource(R.string.settings_viewfinder_ratio_description),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(ratioScrollState),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                ViewfinderAspectRatio.entries.forEach { option ->
+                    MeterChoiceChip(
+                        label = option.storageValue,
+                        selected = option == selectedAspectRatio,
+                        onClick = { onAspectRatioSelected(option) },
                     )
                 }
             }

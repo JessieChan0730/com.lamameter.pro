@@ -53,6 +53,8 @@
     <string name="settings_live_metering_description">预览运行时持续更新曝光数值。</string>
     <string name="settings_single_metering_description">关闭实时刷新，点击取景画面进行一次测光并保留结果。</string>
     <string name="settings_preview_title">&#x53D6;&#x666F;</string>
+    <string name="settings_viewfinder_ratio">&#x53D6;&#x666F;&#x6846;&#x6BD4;&#x4F8B;</string>
+    <string name="settings_viewfinder_ratio_description">&#x76F4;&#x63A5;&#x8C03;&#x6574;&#x53D6;&#x666F;&#x6846;&#x672C;&#x8EAB;&#x7684;&#x6BD4;&#x4F8B;&#x5927;&#x5C0F;&#x3002;&#x53C2;&#x8003;&#x7EBF;&#x3001;&#x6D4B;&#x5149;&#x6846;&#x4E0E;&#x6D4B;&#x5149;&#x8303;&#x56F4;&#x90FD;&#x4F1A;&#x8DDF;&#x968F;&#x53EF;&#x89C1;&#x53D6;&#x666F;&#x753B;&#x9762;&#x8C03;&#x6574;&#x3002;</string>
     <string name="settings_reference_grid">&#x5F00;&#x542F;&#x53C2;&#x8003;&#x7EBF;</string>
     <string name="settings_reference_grid_description">&#x5728;&#x53D6;&#x666F;&#x6846;&#x4E0A;&#x663E;&#x793A;&#x7070;&#x8272;&#x534A;&#x900F;&#x660E;&#x4E5D;&#x5BAB;&#x683C;&#xFF0C;&#x65B9;&#x4FBF;&#x6784;&#x56FE;&#x53C2;&#x8003;&#x3002;</string>
     <string name="settings_histogram">亮度直方图</string>

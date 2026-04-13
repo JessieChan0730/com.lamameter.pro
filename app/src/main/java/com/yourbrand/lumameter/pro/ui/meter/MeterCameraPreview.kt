@@ -37,6 +37,7 @@ import com.yourbrand.lumameter.pro.data.camera.LuminanceAnalyzer
 import com.yourbrand.lumameter.pro.domain.exposure.LuminanceReading
 import com.yourbrand.lumameter.pro.domain.exposure.MeteringMode
 import com.yourbrand.lumameter.pro.domain.exposure.MeteringPoint
+import com.yourbrand.lumameter.pro.domain.exposure.ViewfinderAspectRatio
 import java.util.concurrent.CancellationException
 import java.util.concurrent.Executors
 import kotlin.math.abs
@@ -46,6 +47,7 @@ fun MeterCameraPreview(
     modifier: Modifier = Modifier,
     meteringMode: MeteringMode,
     meteringPoint: MeteringPoint,
+    viewfinderAspectRatio: ViewfinderAspectRatio,
     isAeLocked: Boolean,
     requestedZoomRatio: Float,
     showGuideGrid: Boolean,
@@ -68,6 +70,7 @@ fun MeterCameraPreview(
 
     val currentMeteringMode by rememberUpdatedState(meteringMode)
     val currentMeteringPoint by rememberUpdatedState(meteringPoint)
+    val currentViewfinderAspectRatio by rememberUpdatedState(viewfinderAspectRatio)
     val currentReadingCallback by rememberUpdatedState(onReadingAvailable)
     val currentRequestedZoomRatio by rememberUpdatedState(requestedZoomRatio)
     val currentZoomCapabilityCallback by rememberUpdatedState(onZoomCapabilityResolved)
@@ -102,6 +105,7 @@ fun MeterCameraPreview(
                     LuminanceAnalyzer(
                         meteringModeProvider = { currentMeteringMode },
                         meteringPointProvider = { currentMeteringPoint },
+                        viewfinderAspectRatioProvider = { currentViewfinderAspectRatio },
                         onReadingAvailable = { reading -> currentReadingCallback(reading) },
                     )
                 )

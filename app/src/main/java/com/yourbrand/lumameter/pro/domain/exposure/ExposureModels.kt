@@ -11,6 +11,29 @@ enum class MeteringMode {
     SPOT,
 }
 
+enum class ViewfinderAspectRatio(
+    val storageValue: String,
+    private val widthUnits: Int,
+    private val heightUnits: Int,
+) {
+    SQUARE("1:1", 1, 1),
+    FOUR_THREE("4:3", 4, 3),
+    NINE_SIX("9:6", 9, 6),
+    SIXTEEN_NINE("16:9", 16, 9),
+    ;
+
+    val ratio: Float
+        get() = widthUnits.toFloat() / heightUnits.toFloat()
+
+    companion object {
+        val Default = FOUR_THREE
+
+        fun fromStorageValue(value: String?): ViewfinderAspectRatio {
+            return entries.firstOrNull { it.storageValue == value } ?: Default
+        }
+    }
+}
+
 data class MeteringPoint(
     val x: Float = 0.5f,
     val y: Float = 0.5f,
@@ -23,6 +46,79 @@ data class MeteringPoint(
                 x = x.coerceIn(0f, 1f),
                 y = y.coerceIn(0f, 1f),
             )
+        }
+    }
+}
+
+data class ViewfinderRect(
+    val left: Float,
+    val top: Float,
+    val right: Float,
+    val bottom: Float,
+) {
+    val width: Float
+        get() = (right - left).coerceAtLeast(0f)
+
+    val height: Float
+        get() = (bottom - top).coerceAtLeast(0f)
+
+    fun contains(point: MeteringPoint): Boolean {
+        return point.x in left..right && point.y in top..bottom
+    }
+
+    fun toAbsolutePoint(localPoint: MeteringPoint): MeteringPoint {
+        return MeteringPoint.normalized(
+            x = left + width * localPoint.x,
+            y = top + height * localPoint.y,
+        )
+    }
+
+    fun toLocalPoint(absolutePoint: MeteringPoint): MeteringPoint {
+        val safeWidth = width.coerceAtLeast(0.0001f)
+        val safeHeight = height.coerceAtLeast(0.0001f)
+        return MeteringPoint.normalized(
+            x = (absolutePoint.x - left) / safeWidth,
+            y = (absolutePoint.y - top) / safeHeight,
+        )
+    }
+
+    companion object {
+        val Full = ViewfinderRect(
+            left = 0f,
+            top = 0f,
+            right = 1f,
+            bottom = 1f,
+        )
+
+        fun centered(
+            containerWidth: Float,
+            containerHeight: Float,
+            targetAspectRatio: Float,
+        ): ViewfinderRect {
+            val safeWidth = containerWidth.coerceAtLeast(1f)
+            val safeHeight = containerHeight.coerceAtLeast(1f)
+            val safeAspectRatio = targetAspectRatio.coerceAtLeast(0.01f)
+            val containerAspectRatio = safeWidth / safeHeight
+
+            return if (containerAspectRatio > safeAspectRatio) {
+                val normalizedWidth = (safeAspectRatio / containerAspectRatio).coerceIn(0f, 1f)
+                val horizontalInset = (1f - normalizedWidth) / 2f
+                ViewfinderRect(
+                    left = horizontalInset,
+                    top = 0f,
+                    right = 1f - horizontalInset,
+                    bottom = 1f,
+                )
+            } else {
+                val normalizedHeight = (containerAspectRatio / safeAspectRatio).coerceIn(0f, 1f)
+                val verticalInset = (1f - normalizedHeight) / 2f
+                ViewfinderRect(
+                    left = 0f,
+                    top = verticalInset,
+                    right = 1f,
+                    bottom = 1f - verticalInset,
+                )
+            }
         }
     }
 }
@@ -66,6 +162,8 @@ data class LuminanceReading(
         const val HISTOGRAM_BIN_COUNT = 256
     }
 }
+
+const val PREVIEW_CONTAINER_ASPECT_RATIO = 4f / 3f
 
 data class ExposureResult(
     val sceneEv100: Double,

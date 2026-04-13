@@ -19,6 +19,43 @@ class ExposureModelsTest {
     }
 
     @Test
+    fun `stored viewfinder ratio falls back to four by three when unknown`() {
+        assertEquals(ViewfinderAspectRatio.FOUR_THREE, ViewfinderAspectRatio.fromStorageValue("7:5"))
+        assertEquals(ViewfinderAspectRatio.NINE_SIX, ViewfinderAspectRatio.fromStorageValue("9:6"))
+    }
+
+    @Test
+    fun `square viewfinder is centered inside the preview container`() {
+        val rect = ViewfinderRect.centered(
+            containerWidth = 4f,
+            containerHeight = 3f,
+            targetAspectRatio = ViewfinderAspectRatio.SQUARE.ratio,
+        )
+
+        assertEquals(0.125f, rect.left, 0.0001f)
+        assertEquals(0f, rect.top, 0.0001f)
+        assertEquals(0.875f, rect.right, 0.0001f)
+        assertEquals(1f, rect.bottom, 0.0001f)
+    }
+
+    @Test
+    fun `viewfinder rect converts between local and absolute metering points`() {
+        val rect = ViewfinderRect(
+            left = 0.125f,
+            top = 0f,
+            right = 0.875f,
+            bottom = 1f,
+        )
+        val localPoint = MeteringPoint.normalized(1f, 0.5f)
+
+        val absolutePoint = rect.toAbsolutePoint(localPoint)
+
+        assertEquals(0.875f, absolutePoint.x, 0.0001f)
+        assertEquals(0.5f, absolutePoint.y, 0.0001f)
+        assertEquals(localPoint, rect.toLocalPoint(absolutePoint))
+    }
+
+    @Test
     fun `placeholder exposure result provides safe startup defaults`() {
         val result = ExposureResult.placeholder()
 
