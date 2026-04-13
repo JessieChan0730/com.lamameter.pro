@@ -735,6 +735,7 @@ private fun PreviewCard(
                 modifier = Modifier.fillMaxSize(),
                 meteringMode = uiState.meteringMode,
                 meteringPoint = uiState.meteringPoint,
+                hasCustomSpotMeteringPoint = uiState.hasCustomSpotMeteringPoint,
                 viewfinderAspectRatio = viewfinderAspectRatio,
                 isAeLocked = uiState.isAeLocked,
                 requestedZoomRatio = uiState.zoomRatio,
@@ -780,21 +781,28 @@ private fun PreviewCard(
                     )
                 }
             }
-            Text(
-                text = if (uiState.isLiveMeteringEnabled) {
-                    stringResource(R.string.tap_to_reposition_meter)
-                } else {
-                    stringResource(R.string.tap_to_meter_once)
-                },
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .fillMaxWidth(0.72f)
-                    .padding(14.dp),
-                style = MaterialTheme.typography.labelLarge,
-                color = Color.White.copy(alpha = 0.92f),
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
+            val previewTapHint = resolvePreviewTapHint(
+                meteringMode = uiState.meteringMode,
+                isLiveMeteringEnabled = uiState.isLiveMeteringEnabled,
+                hasCustomSpotMeteringPoint = uiState.hasCustomSpotMeteringPoint,
             )
+            previewTapHint?.let { hint ->
+                Text(
+                    text = when (hint) {
+                        PreviewTapHint.TAP_TO_METER -> stringResource(R.string.tap_to_meter)
+                        PreviewTapHint.TAP_TO_METER_ONCE -> stringResource(R.string.tap_to_meter_once)
+                        PreviewTapHint.TAP_TO_REPOSITION_METER -> stringResource(R.string.tap_to_reposition_meter)
+                    },
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .fillMaxWidth(0.72f)
+                        .padding(14.dp),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = Color.White.copy(alpha = 0.92f),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
     }
 }
@@ -2276,7 +2284,7 @@ private fun formatAperture(value: Double): String {
     return "f/${String.format(Locale.getDefault(), "%.1f", value)}"
 }
 
-private fun formatShutter(value: Double): String {
+internal fun formatShutter(value: Double): String {
     return if (value >= 1.0) {
         val display = if (value >= 10 || value % 1.0 == 0.0) {
             String.format(Locale.getDefault(), "%.0f", value)
@@ -2285,7 +2293,15 @@ private fun formatShutter(value: Double): String {
         }
         "${display}s"
     } else {
-        "1/${(1.0 / value).toInt().coerceAtLeast(1)}"
+        val reciprocal = 1.0 / value
+        val roundedReciprocal = reciprocal.roundToInt().coerceAtLeast(1)
+        val roundedTenthsSeconds = (value * 10.0).roundToInt() / 10.0
+        when {
+            reciprocal <= 1.05 -> "1s"
+            abs(reciprocal - roundedReciprocal.toDouble()) < 0.05 -> "1/$roundedReciprocal"
+            roundedTenthsSeconds <= 0.0 -> "1/$roundedReciprocal"
+            else -> "${String.format(Locale.getDefault(), "%.1f", roundedTenthsSeconds)}s"
+        }
     }
 }
 
@@ -2426,6 +2442,25 @@ private fun meterStatusLabel(uiState: MeterUiState): String {
         MeterStatus.LOCKED -> stringResource(R.string.status_ae_lock_active)
         MeterStatus.LIVE -> stringResource(R.string.status_live_metering)
         MeterStatus.MANUAL -> stringResource(R.string.status_single_metering_done)
+    }
+}
+
+internal enum class PreviewTapHint {
+    TAP_TO_METER,
+    TAP_TO_METER_ONCE,
+    TAP_TO_REPOSITION_METER,
+}
+
+internal fun resolvePreviewTapHint(
+    meteringMode: MeteringMode,
+    isLiveMeteringEnabled: Boolean,
+    hasCustomSpotMeteringPoint: Boolean,
+): PreviewTapHint? {
+    return when {
+        !isLiveMeteringEnabled -> PreviewTapHint.TAP_TO_METER_ONCE
+        meteringMode != MeteringMode.SPOT -> null
+        hasCustomSpotMeteringPoint -> PreviewTapHint.TAP_TO_REPOSITION_METER
+        else -> PreviewTapHint.TAP_TO_METER
     }
 }
 

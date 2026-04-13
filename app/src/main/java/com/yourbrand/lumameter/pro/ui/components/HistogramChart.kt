@@ -5,7 +5,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -22,9 +21,9 @@ fun HistogramChart(
     backgroundColor: Color? = null,
     baselineColor: Color? = null,
 ) {
-    val resolvedBarColor = barColor ?: MaterialTheme.colorScheme.primary.copy(alpha = 0.88f)
-    val resolvedBackgroundColor = backgroundColor ?: Color.Black.copy(alpha = 0.42f)
-    val resolvedBaselineColor = baselineColor ?: Color.White.copy(alpha = 0.22f)
+    val resolvedBarColor = barColor ?: Color.White.copy(alpha = 0.85f)
+    val resolvedBackgroundColor = backgroundColor ?: Color.Black.copy(alpha = 0.55f)
+    val resolvedBaselineColor = baselineColor ?: Color.White.copy(alpha = 0.18f)
 
     Box(
         modifier = modifier
