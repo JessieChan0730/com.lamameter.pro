@@ -60,6 +60,7 @@ data class MeterUiState(
     val exposureMode: ExposureMode = ExposureMode.APERTURE_PRIORITY,
     val meteringMode: MeteringMode = MeteringMode.SPOT,
     val meteringPoint: MeteringPoint = MeteringPoint.Center,
+    val hasCustomSpotMeteringPoint: Boolean = false,
     val isAeLocked: Boolean = false,
     val isLiveMeteringEnabled: Boolean = true,
     val isManualMeterPending: Boolean = false,
@@ -141,7 +142,12 @@ class MeterViewModel(
     }
 
     fun setMeteringPoint(point: MeteringPoint) {
-        _uiState.update { current -> current.copy(meteringPoint = point) }
+        _uiState.update { current ->
+            current.copy(
+                meteringPoint = point,
+                hasCustomSpotMeteringPoint = true,
+            )
+        }
     }
 
     fun updateZoomCapability(

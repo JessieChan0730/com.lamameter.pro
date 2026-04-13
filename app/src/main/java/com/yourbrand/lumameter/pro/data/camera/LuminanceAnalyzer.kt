@@ -40,8 +40,13 @@ class LuminanceAnalyzer(
                 previewRect = previewViewfinderRect,
                 rotationDegrees = image.imageInfo.rotationDegrees,
             )
+            val previewMeteringPoint = when (meteringMode) {
+                MeteringMode.AVERAGE,
+                MeteringMode.CENTER_WEIGHTED -> MeteringPoint.Center
+                MeteringMode.SPOT -> meteringPointProvider()
+            }
             val mappedPoint = mapPreviewPointToBuffer(
-                previewPoint = previewViewfinderRect.toAbsolutePoint(meteringPointProvider()),
+                previewPoint = previewViewfinderRect.toAbsolutePoint(previewMeteringPoint),
                 rotationDegrees = image.imageInfo.rotationDegrees,
             )
             val cropLeft = floor(mappedViewfinderRect.left * width).toInt()

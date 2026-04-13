@@ -172,6 +172,18 @@ class MeterViewModelTest {
     }
 
     @Test
+    fun `setting metering point marks spot reticle as user selected`() {
+        val viewModel = MeterViewModel()
+        val point = MeteringPoint.normalized(0.2f, 0.8f)
+
+        viewModel.setMeteringPoint(point)
+
+        val state = viewModel.uiState.value
+        assertEquals(point, state.meteringPoint)
+        assertTrue(state.hasCustomSpotMeteringPoint)
+    }
+
+    @Test
     fun `toggle ae lock without a reading leaves state unchanged`() {
         val viewModel = MeterViewModel()
 

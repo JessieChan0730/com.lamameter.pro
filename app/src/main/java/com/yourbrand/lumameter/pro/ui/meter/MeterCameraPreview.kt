@@ -47,6 +47,7 @@ fun MeterCameraPreview(
     modifier: Modifier = Modifier,
     meteringMode: MeteringMode,
     meteringPoint: MeteringPoint,
+    hasCustomSpotMeteringPoint: Boolean,
     viewfinderAspectRatio: ViewfinderAspectRatio,
     isAeLocked: Boolean,
     requestedZoomRatio: Float,
@@ -190,17 +191,25 @@ fun MeterCameraPreview(
         )
     }
 
+    val displayedReticlePoint = resolveDisplayedReticlePoint(
+        meteringMode = meteringMode,
+        meteringPoint = meteringPoint,
+        hasCustomSpotMeteringPoint = hasCustomSpotMeteringPoint,
+    )
+
     Box(
         modifier = modifier.pointerInput(Unit) {
             detectTapGestures { tapOffset ->
-                val width = size.width.toFloat().coerceAtLeast(1f)
-                val height = size.height.toFloat().coerceAtLeast(1f)
-                onMeteringPointChanged(
-                    MeteringPoint.normalized(
-                        x = tapOffset.x / width,
-                        y = tapOffset.y / height,
+                if (currentMeteringMode == MeteringMode.SPOT) {
+                    val width = size.width.toFloat().coerceAtLeast(1f)
+                    val height = size.height.toFloat().coerceAtLeast(1f)
+                    onMeteringPointChanged(
+                        MeteringPoint.normalized(
+                            x = tapOffset.x / width,
+                            y = tapOffset.y / height,
+                        )
                     )
-                )
+                }
                 onPreviewTapped()
             }
         }
@@ -214,10 +223,24 @@ fun MeterCameraPreview(
             GuideGridOverlay()
         }
 
-        MeterReticle(
-            meteringPoint = meteringPoint,
-            isAeLocked = isAeLocked,
-        )
+        displayedReticlePoint?.let { reticlePoint ->
+            MeterReticle(
+                meteringPoint = reticlePoint,
+                isAeLocked = isAeLocked,
+            )
+        }
+    }
+}
+
+internal fun resolveDisplayedReticlePoint(
+    meteringMode: MeteringMode,
+    meteringPoint: MeteringPoint,
+    hasCustomSpotMeteringPoint: Boolean,
+): MeteringPoint? {
+    return when (meteringMode) {
+        MeteringMode.AVERAGE -> null
+        MeteringMode.CENTER_WEIGHTED -> MeteringPoint.Center
+        MeteringMode.SPOT -> if (hasCustomSpotMeteringPoint) meteringPoint else null
     }
 }
 

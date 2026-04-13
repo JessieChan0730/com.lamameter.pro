@@ -68,6 +68,25 @@ class LuminanceAnalyzerTest {
     }
 
     @Test
+    fun `center weighted metering ignores an off-center tap point`() {
+        val image = fakeImageProxy(
+            width = 10,
+            height = 10,
+        ) { x, y ->
+            if (x in 3..6 && y in 3..6) 180 else 20
+        }
+
+        val reading = analyze(
+            image = image,
+            meteringMode = MeteringMode.CENTER_WEIGHTED,
+            meteringPoint = MeteringPoint.normalized(0.9f, 0.1f),
+        )
+
+        assertNotNull(reading)
+        assertEquals(MeteringPoint.Center, reading?.meteringPoint)
+    }
+
+    @Test
     fun `average metering uses the active square viewfinder crop`() {
         val image = fakeImageProxy(
             width = 8,
