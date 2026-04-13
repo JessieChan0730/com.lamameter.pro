@@ -53,6 +53,8 @@
     <string name="settings_live_metering_description">Continuously updates exposure values while the preview is running.</string>
     <string name="settings_single_metering_description">Turns off live updates. Tap the preview to meter once and keep that reading.</string>
     <string name="settings_preview_title">Preview</string>
+    <string name="settings_viewfinder_ratio">Viewfinder ratio</string>
+    <string name="settings_viewfinder_ratio_description">Changes the preview frame ratio directly. The guide grid, reticle, and metering region follow the visible preview.</string>
     <string name="settings_reference_grid">Reference grid</string>
     <string name="settings_reference_grid_description">Shows a semi-transparent gray rule-of-thirds grid over the camera preview for composition.</string>
     <string name="settings_histogram">Brightness histogram</string>

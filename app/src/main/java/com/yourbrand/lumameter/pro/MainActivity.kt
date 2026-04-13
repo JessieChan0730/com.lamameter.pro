@@ -10,6 +10,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import com.yourbrand.lumameter.pro.domain.exposure.ViewfinderAspectRatio
 import com.yourbrand.lumameter.pro.ui.meter.MeterRoute
 import com.yourbrand.lumameter.pro.ui.theme.AppThemeMode
 import com.yourbrand.lumameter.pro.ui.theme.LumaMeterTheme
@@ -44,6 +45,16 @@ class MainActivity : ComponentActivity() {
                     preferences.getBoolean(KEY_HISTOGRAM_ENABLED, false),
                 )
             }
+            var viewfinderAspectRatio by rememberSaveable {
+                mutableStateOf(
+                    ViewfinderAspectRatio.fromStorageValue(
+                        preferences.getString(
+                            KEY_VIEWFINDER_ASPECT_RATIO,
+                            ViewfinderAspectRatio.Default.storageValue,
+                        ),
+                    )
+                )
+            }
 
             LaunchedEffect(themeMode) {
                 preferences.edit()
@@ -65,6 +76,11 @@ class MainActivity : ComponentActivity() {
                     .putBoolean(KEY_HISTOGRAM_ENABLED, histogramEnabled)
                     .apply()
             }
+            LaunchedEffect(viewfinderAspectRatio) {
+                preferences.edit()
+                    .putString(KEY_VIEWFINDER_ASPECT_RATIO, viewfinderAspectRatio.storageValue)
+                    .apply()
+            }
 
             LumaMeterTheme(themeMode = themeMode) {
                 MeterRoute(
@@ -76,6 +92,8 @@ class MainActivity : ComponentActivity() {
                     onGuideGridEnabledChanged = { guideGridEnabled = it },
                     histogramEnabled = histogramEnabled,
                     onHistogramEnabledChanged = { histogramEnabled = it },
+                    viewfinderAspectRatio = viewfinderAspectRatio,
+                    onViewfinderAspectRatioChanged = { viewfinderAspectRatio = it },
                 )
             }
         }
@@ -87,5 +105,6 @@ class MainActivity : ComponentActivity() {
         const val KEY_LIVE_METERING_ENABLED = "live_metering_enabled"
         const val KEY_GUIDE_GRID_ENABLED = "guide_grid_enabled"
         const val KEY_HISTOGRAM_ENABLED = "histogram_enabled"
+        const val KEY_VIEWFINDER_ASPECT_RATIO = "viewfinder_aspect_ratio"
     }
 }
