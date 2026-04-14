@@ -45,6 +45,11 @@ class MainActivity : ComponentActivity() {
                     preferences.getBoolean(KEY_HISTOGRAM_ENABLED, false),
                 )
             }
+            var levelIndicatorEnabled by rememberSaveable {
+                mutableStateOf(
+                    preferences.getBoolean(KEY_LEVEL_INDICATOR_ENABLED, false),
+                )
+            }
             var viewfinderAspectRatio by rememberSaveable {
                 mutableStateOf(
                     ViewfinderAspectRatio.fromStorageValue(
@@ -76,6 +81,11 @@ class MainActivity : ComponentActivity() {
                     .putBoolean(KEY_HISTOGRAM_ENABLED, histogramEnabled)
                     .apply()
             }
+            LaunchedEffect(levelIndicatorEnabled) {
+                preferences.edit()
+                    .putBoolean(KEY_LEVEL_INDICATOR_ENABLED, levelIndicatorEnabled)
+                    .apply()
+            }
             LaunchedEffect(viewfinderAspectRatio) {
                 preferences.edit()
                     .putString(KEY_VIEWFINDER_ASPECT_RATIO, viewfinderAspectRatio.storageValue)
@@ -92,6 +102,8 @@ class MainActivity : ComponentActivity() {
                     onGuideGridEnabledChanged = { guideGridEnabled = it },
                     histogramEnabled = histogramEnabled,
                     onHistogramEnabledChanged = { histogramEnabled = it },
+                    levelIndicatorEnabled = levelIndicatorEnabled,
+                    onLevelIndicatorEnabledChanged = { levelIndicatorEnabled = it },
                     viewfinderAspectRatio = viewfinderAspectRatio,
                     onViewfinderAspectRatioChanged = { viewfinderAspectRatio = it },
                 )
@@ -105,6 +117,7 @@ class MainActivity : ComponentActivity() {
         const val KEY_LIVE_METERING_ENABLED = "live_metering_enabled"
         const val KEY_GUIDE_GRID_ENABLED = "guide_grid_enabled"
         const val KEY_HISTOGRAM_ENABLED = "histogram_enabled"
+        const val KEY_LEVEL_INDICATOR_ENABLED = "level_indicator_enabled"
         const val KEY_VIEWFINDER_ASPECT_RATIO = "viewfinder_aspect_ratio"
     }
 }

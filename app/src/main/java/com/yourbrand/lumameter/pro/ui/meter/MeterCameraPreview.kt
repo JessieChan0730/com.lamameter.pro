@@ -1,6 +1,10 @@
 package com.yourbrand.lumameter.pro.ui.meter
 
 import android.content.Context
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
 import androidx.camera.core.AspectRatio
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
@@ -9,6 +13,9 @@ import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.Canvas
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -52,6 +59,7 @@ fun MeterCameraPreview(
     isAeLocked: Boolean,
     requestedZoomRatio: Float,
     showGuideGrid: Boolean,
+    showLevelIndicator: Boolean,
     onMeteringPointChanged: (MeteringPoint) -> Unit,
     onPreviewTapped: () -> Unit,
     onReadingAvailable: (LuminanceReading) -> Unit,
@@ -221,6 +229,10 @@ fun MeterCameraPreview(
 
         if (showGuideGrid) {
             GuideGridOverlay()
+        }
+
+        if (showLevelIndicator) {
+            LevelIndicatorOverlay()
         }
 
         displayedReticlePoint?.let { reticlePoint ->
@@ -436,7 +448,120 @@ private fun MeterReticle(
     }
 }
 
+@Composable
+private fun LevelIndicatorOverlay(
+    modifier: Modifier = Modifier,
+) {
+    val context = LocalContext.current
+    val density = LocalDensity.current
+    val sensorManager = remember(context) {
+        context.getSystemService(Context.SENSOR_SERVICE) as? SensorManager
+    }
+    var rollDegrees by remember { mutableStateOf(0f) }
+
+    DisposableEffect(sensorManager) {
+        val rotationSensor = sensorManager?.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
+        if (sensorManager == null || rotationSensor == null) {
+            onDispose { }
+        } else {
+            val rotationMatrix = FloatArray(9)
+            val orientation = FloatArray(3)
+            val listener = object : SensorEventListener {
+                override fun onSensorChanged(event: SensorEvent) {
+                    SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values)
+                    SensorManager.getOrientation(rotationMatrix, orientation)
+                    val rawRoll = Math.toDegrees(orientation[2].toDouble()).toFloat()
+                    rollDegrees = rollDegrees * LEVEL_SMOOTHING_FACTOR +
+                        rawRoll * (1f - LEVEL_SMOOTHING_FACTOR)
+                }
+
+                override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
+            }
+            sensorManager.registerListener(
+                listener,
+                rotationSensor,
+                SensorManager.SENSOR_DELAY_UI,
+            )
+            onDispose {
+                sensorManager.unregisterListener(listener)
+            }
+        }
+    }
+
+    val isLevel = abs(rollDegrees) < LEVEL_THRESHOLD_DEGREES
+    val animatedRoll by animateFloatAsState(
+        targetValue = rollDegrees,
+        animationSpec = tween(
+            durationMillis = 100,
+            easing = FastOutSlowInEasing,
+        ),
+        label = "levelRoll",
+    )
+
+    val lineColor = if (isLevel) LEVEL_COLOR_ALIGNED else LEVEL_COLOR_DEFAULT
+    val strokeWidth = with(density) { LEVEL_STROKE_WIDTH.toPx() }
+    val contrastStrokeWidth = strokeWidth + with(density) { 2.dp.toPx() }
+    val gapHalf = with(density) { LEVEL_CENTER_GAP_HALF.toPx() }
+
+    Canvas(modifier = modifier.fillMaxSize()) {
+        val center = Offset(size.width / 2f, size.height / 2f)
+        val armLength = size.width * LEVEL_ARM_RATIO
+        val rollRad = Math.toRadians(animatedRoll.toDouble()).toFloat()
+        val dx = kotlin.math.cos(rollRad)
+        val dy = kotlin.math.sin(rollRad)
+
+        val gapStartX = center.x + gapHalf * dx
+        val gapStartY = center.y + gapHalf * dy
+        val gapEndX = center.x - gapHalf * dx
+        val gapEndY = center.y - gapHalf * dy
+
+        val leftEnd = Offset(center.x - armLength * dx, center.y - armLength * dy)
+        val rightEnd = Offset(center.x + armLength * dx, center.y + armLength * dy)
+
+        val contrastColor = Color.Black.copy(alpha = 0.22f)
+
+        // contrast shadow
+        drawLine(
+            color = contrastColor,
+            start = leftEnd,
+            end = Offset(gapEndX, gapEndY),
+            strokeWidth = contrastStrokeWidth,
+            cap = StrokeCap.Round,
+        )
+        drawLine(
+            color = contrastColor,
+            start = Offset(gapStartX, gapStartY),
+            end = rightEnd,
+            strokeWidth = contrastStrokeWidth,
+            cap = StrokeCap.Round,
+        )
+
+        // main line
+        drawLine(
+            color = lineColor,
+            start = leftEnd,
+            end = Offset(gapEndX, gapEndY),
+            strokeWidth = strokeWidth,
+            cap = StrokeCap.Round,
+        )
+        drawLine(
+            color = lineColor,
+            start = Offset(gapStartX, gapStartY),
+            end = rightEnd,
+            strokeWidth = strokeWidth,
+            cap = StrokeCap.Round,
+        )
+    }
+}
+
 private const val DEFAULT_ZOOM_RATIO = 1f
 private const val ZOOM_UPDATE_EPSILON = 0.01f
 private const val GUIDE_GRID_ALPHA = 0.42f
 private const val RETICLE_ALPHA = 0.78f
+private const val LEVEL_SMOOTHING_FACTOR = 0.75f
+private const val LEVEL_THRESHOLD_DEGREES = 1f
+private const val LEVEL_ARM_RATIO = 0.20f
+private val LEVEL_COLOR_ALIGNED = Color(0xFF4CAF50).copy(alpha = 0.72f)
+private val LEVEL_COLOR_DEFAULT = Color(0xFFB5B5B5).copy(alpha = 0.50f)
+private val LEVEL_STROKE_WIDTH = 1.5.dp
+private val LEVEL_CENTER_GAP_HALF = 14.dp

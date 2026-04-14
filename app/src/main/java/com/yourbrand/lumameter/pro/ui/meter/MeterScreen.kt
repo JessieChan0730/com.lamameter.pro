@@ -64,6 +64,7 @@ import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.LockOpen
 import androidx.compose.material.icons.rounded.PhotoCamera
 import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.Straighten
 import androidx.compose.material.icons.rounded.SwapHoriz
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.Button
@@ -176,6 +177,8 @@ fun MeterRoute(
     onGuideGridEnabledChanged: (Boolean) -> Unit,
     histogramEnabled: Boolean,
     onHistogramEnabledChanged: (Boolean) -> Unit,
+    levelIndicatorEnabled: Boolean,
+    onLevelIndicatorEnabledChanged: (Boolean) -> Unit,
     viewfinderAspectRatio: ViewfinderAspectRatio,
     onViewfinderAspectRatioChanged: (ViewfinderAspectRatio) -> Unit,
     viewModel: MeterViewModel = viewModel(),
@@ -300,6 +303,7 @@ fun MeterRoute(
                 onAeLockToggled = viewModel::toggleAeLock,
                 showGuideGrid = guideGridEnabled,
                 showHistogram = histogramEnabled,
+                showLevelIndicator = levelIndicatorEnabled,
                 viewfinderAspectRatio = viewfinderAspectRatio,
                 onPreviewTapped = viewModel::requestManualMetering,
                 onOpenModeSheet = { activeSheet = MeterSheet.EXPOSURE_MODE },
@@ -324,6 +328,8 @@ fun MeterRoute(
                 onGuideGridEnabledChanged = onGuideGridEnabledChanged,
                 histogramEnabled = histogramEnabled,
                 onHistogramEnabledChanged = onHistogramEnabledChanged,
+                levelIndicatorEnabled = levelIndicatorEnabled,
+                onLevelIndicatorEnabledChanged = onLevelIndicatorEnabledChanged,
                 viewfinderAspectRatio = viewfinderAspectRatio,
                 onViewfinderAspectRatioChanged = onViewfinderAspectRatioChanged,
                 onBack = { currentPage = MeterPage.MAIN },
@@ -388,6 +394,7 @@ private fun MeterMainPage(
     onAeLockToggled: () -> Unit,
     showGuideGrid: Boolean,
     showHistogram: Boolean,
+    showLevelIndicator: Boolean,
     viewfinderAspectRatio: ViewfinderAspectRatio,
     onPreviewTapped: () -> Unit,
     onOpenModeSheet: () -> Unit,
@@ -454,6 +461,7 @@ private fun MeterMainPage(
                                 onZoomRatioChanged = onZoomRatioChanged,
                                 showGuideGrid = showGuideGrid,
                                 showHistogram = showHistogram,
+                                showLevelIndicator = showLevelIndicator,
                                 viewfinderAspectRatio = viewfinderAspectRatio,
                                 onPreviewTapped = onPreviewTapped,
                             )
@@ -671,6 +679,7 @@ private fun PreviewSection(
     onZoomRatioChanged: (Float) -> Unit,
     showGuideGrid: Boolean,
     showHistogram: Boolean,
+    showLevelIndicator: Boolean,
     viewfinderAspectRatio: ViewfinderAspectRatio,
     onPreviewTapped: () -> Unit,
 ) {
@@ -690,6 +699,7 @@ private fun PreviewSection(
             onZoomRatioChanged = onZoomRatioChanged,
             showGuideGrid = showGuideGrid,
             showHistogram = showHistogram,
+            showLevelIndicator = showLevelIndicator,
             viewfinderAspectRatio = viewfinderAspectRatio,
             onPreviewTapped = onPreviewTapped,
         )
@@ -716,6 +726,7 @@ private fun PreviewCard(
     onZoomRatioChanged: (Float) -> Unit,
     showGuideGrid: Boolean,
     showHistogram: Boolean,
+    showLevelIndicator: Boolean,
     viewfinderAspectRatio: ViewfinderAspectRatio,
     onPreviewTapped: () -> Unit,
 ) {
@@ -740,6 +751,7 @@ private fun PreviewCard(
                 isAeLocked = uiState.isAeLocked,
                 requestedZoomRatio = uiState.zoomRatio,
                 showGuideGrid = showGuideGrid,
+                showLevelIndicator = showLevelIndicator,
                 onMeteringPointChanged = onMeteringPointChanged,
                 onPreviewTapped = onPreviewTapped,
                 onReadingAvailable = onReadingAvailable,
@@ -1419,6 +1431,8 @@ private fun SettingsPage(
     onGuideGridEnabledChanged: (Boolean) -> Unit,
     histogramEnabled: Boolean,
     onHistogramEnabledChanged: (Boolean) -> Unit,
+    levelIndicatorEnabled: Boolean,
+    onLevelIndicatorEnabledChanged: (Boolean) -> Unit,
     viewfinderAspectRatio: ViewfinderAspectRatio,
     onViewfinderAspectRatioChanged: (ViewfinderAspectRatio) -> Unit,
     onBack: () -> Unit,
@@ -1503,6 +1517,14 @@ private fun SettingsPage(
                         checkedIcon = Icons.Rounded.Equalizer,
                         uncheckedIcon = Icons.Rounded.Equalizer,
                         onCheckedChange = onHistogramEnabledChanged,
+                    )
+                    SettingsToggleCard(
+                        title = stringResource(R.string.settings_level_indicator),
+                        subtitle = stringResource(R.string.settings_level_indicator_description),
+                        checked = levelIndicatorEnabled,
+                        checkedIcon = Icons.Rounded.Straighten,
+                        uncheckedIcon = Icons.Rounded.Straighten,
+                        onCheckedChange = onLevelIndicatorEnabledChanged,
                     )
 
                     Spacer(modifier = Modifier.height(4.dp))
