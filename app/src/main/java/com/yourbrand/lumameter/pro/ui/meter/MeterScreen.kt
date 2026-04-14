@@ -1157,66 +1157,68 @@ private fun ExposureAdjustmentRow(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Surface(
-                modifier = Modifier.weight(0.32f),
-                shape = RoundedCornerShape(14.dp),
-                color = if (uiState.isAeLocked) {
-                    MaterialTheme.colorScheme.primaryContainer
-                } else {
-                    MaterialTheme.colorScheme.surface.copy(alpha = 0.72f)
-                },
-                onClick = onAeLockToggled,
-            ) {
-                Column(
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
-                    horizontalAlignment = Alignment.Start,
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+            if (uiState.isLiveMeteringEnabled) {
+                Surface(
+                    modifier = Modifier.weight(0.32f),
+                    shape = RoundedCornerShape(14.dp),
+                    color = if (uiState.isAeLocked) {
+                        MaterialTheme.colorScheme.primaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.surface.copy(alpha = 0.72f)
+                    },
+                    onClick = onAeLockToggled,
                 ) {
-                    Icon(
-                        imageVector = if (uiState.isAeLocked) Icons.Rounded.Lock else Icons.Rounded.LockOpen,
-                        contentDescription = null,
-                        tint = if (uiState.isAeLocked) {
-                            MaterialTheme.colorScheme.onPrimaryContainer
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
-                    )
-                    Text(
-                        text = stringResource(R.string.ae_lock_label),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = if (uiState.isAeLocked) {
-                            MaterialTheme.colorScheme.onPrimaryContainer
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
-                    )
-                    Text(
-                        text = if (uiState.isAeLocked) {
-                            stringResource(R.string.state_on)
-                        } else {
-                            stringResource(R.string.state_off)
-                        },
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = if (uiState.isAeLocked) {
-                            MaterialTheme.colorScheme.onPrimaryContainer
-                        } else {
-                            MaterialTheme.colorScheme.onSurface
-                        },
-                    )
+                    Column(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
+                        horizontalAlignment = Alignment.Start,
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Icon(
+                            imageVector = if (uiState.isAeLocked) Icons.Rounded.Lock else Icons.Rounded.LockOpen,
+                            contentDescription = null,
+                            tint = if (uiState.isAeLocked) {
+                                MaterialTheme.colorScheme.onPrimaryContainer
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                        )
+                        Text(
+                            text = stringResource(R.string.ae_lock_label),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = if (uiState.isAeLocked) {
+                                MaterialTheme.colorScheme.onPrimaryContainer
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                        )
+                        Text(
+                            text = if (uiState.isAeLocked) {
+                                stringResource(R.string.state_on)
+                            } else {
+                                stringResource(R.string.state_off)
+                            },
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (uiState.isAeLocked) {
+                                MaterialTheme.colorScheme.onPrimaryContainer
+                            } else {
+                                MaterialTheme.colorScheme.onSurface
+                            },
+                        )
+                    }
                 }
-            }
 
-            Box(
-                modifier = Modifier
-                    .width(1.dp)
-                    .height(50.dp)
-                    .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.16f)),
-            )
+                Box(
+                    modifier = Modifier
+                        .width(1.dp)
+                        .height(50.dp)
+                        .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.16f)),
+                )
+            }
 
             Column(
                 modifier = Modifier
-                    .weight(0.68f)
+                    .weight(if (uiState.isLiveMeteringEnabled) 0.68f else 1f)
                     .padding(end = 6.dp, top = 6.dp, bottom = 6.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
