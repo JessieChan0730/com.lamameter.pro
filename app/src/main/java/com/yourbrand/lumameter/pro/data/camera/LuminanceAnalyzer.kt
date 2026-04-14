@@ -19,9 +19,17 @@ class LuminanceAnalyzer(
     private val meteringPointProvider: () -> MeteringPoint,
     private val viewfinderAspectRatioProvider: () -> ViewfinderAspectRatio,
     private val onReadingAvailable: (LuminanceReading) -> Unit,
+    private val minIntervalMs: Long = DEFAULT_MIN_INTERVAL_MS,
 ) : ImageAnalysis.Analyzer {
 
+    private var lastEmitTimeMs: Long = 0L
+
     override fun analyze(image: ImageProxy) {
+        val now = System.currentTimeMillis()
+        if (now - lastEmitTimeMs < minIntervalMs) {
+            image.close()
+            return
+        }
         try {
             val yPlane = image.planes.firstOrNull() ?: return
             val buffer = yPlane.buffer
@@ -109,6 +117,7 @@ class LuminanceAnalyzer(
                 MeteringMode.SPOT -> spotLuma
             }
 
+            lastEmitTimeMs = now
             onReadingAvailable(
                 LuminanceReading(
                     meteredLuma = meteredLuma,
@@ -169,6 +178,8 @@ class LuminanceAnalyzer(
         )
     }
 }
+
+private const val DEFAULT_MIN_INTERVAL_MS = 150L
 
 private fun Int.saturatingExclusiveUpperBound(): Int {
     return (this - 1).coerceAtLeast(0)
