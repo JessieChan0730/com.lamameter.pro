@@ -174,11 +174,15 @@ class MeterViewModel(
     }
 
     fun setLiveMeteringEnabled(enabled: Boolean) {
+        if (!enabled) {
+            lockedBaseEv100 = null
+        }
         _uiState.update { current ->
             buildState(
                 current.copy(
                     isLiveMeteringEnabled = enabled,
                     isManualMeterPending = false,
+                    isAeLocked = if (enabled) current.isAeLocked else false,
                 ),
                 activeBaseEv100(),
             )
