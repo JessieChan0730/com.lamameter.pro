@@ -59,6 +59,8 @@
     <string name="settings_reference_grid_description">Shows a semi-transparent gray rule-of-thirds grid over the camera preview for composition.</string>
     <string name="settings_histogram">Brightness histogram</string>
     <string name="settings_histogram_description">Shows a luminance histogram in the top-right corner of the preview to check exposure distribution.</string>
+    <string name="settings_level_indicator">Level indicator</string>
+    <string name="settings_level_indicator_description">Shows a horizon line over the preview to help keep the device level.</string>
     <string name="settings_theme_title">App theme</string>
     <string name="settings_theme_description">Choose how LumaMeter renders light and dark surfaces.</string>
     <string name="theme_system">Follow system</string>
