@@ -86,7 +86,25 @@ class MeterUiLogicTest {
         assertEquals("1s", formatShutter(1.0))
         assertEquals("1s", formatShutter(0.999))
         assertEquals("1/2", formatShutter(0.5))
-        assertEquals("0.8s", formatShutter(0.75))
+        assertEquals("1s", formatShutter(0.75))
         assertEquals("1/29", formatShutter(0.035))
+    }
+
+    @Test
+    fun `shutter formatter always uses fraction form below 1s`() {
+        assertEquals("1/10", formatShutter(0.1))
+        assertEquals("1/100", formatShutter(0.01))
+        assertEquals("1/125", formatShutter(1.0 / 125.0))
+        assertEquals("1/250", formatShutter(1.0 / 250.0))
+        assertEquals("1/4000", formatShutter(1.0 / 4000.0))
+    }
+
+    @Test
+    fun `shutter formatter uses decimal seconds at or above 1s`() {
+        assertEquals("1s", formatShutter(1.0))
+        assertEquals("1.1s", formatShutter(1.1))
+        assertEquals("2s", formatShutter(2.0))
+        assertEquals("4s", formatShutter(4.0))
+        assertEquals("30s", formatShutter(30.0))
     }
 }
