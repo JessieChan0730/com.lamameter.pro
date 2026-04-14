@@ -227,6 +227,7 @@ fun MeterCameraPreview(
             MeterReticle(
                 meteringPoint = reticlePoint,
                 isAeLocked = isAeLocked,
+                meteringMode = meteringMode,
             )
         }
     }
@@ -329,6 +330,7 @@ private fun GuideGridOverlay(
 private fun MeterReticle(
     meteringPoint: MeteringPoint,
     isAeLocked: Boolean,
+    meteringMode: MeteringMode,
 ) {
     val density = LocalDensity.current
     val frameHalfSize = with(density) { 20.dp.toPx() }
@@ -342,6 +344,7 @@ private fun MeterReticle(
         MaterialTheme.colorScheme.primary
     }.copy(alpha = RETICLE_ALPHA)
     val contrastColor = Color.Black.copy(alpha = 0.22f)
+    val showCornerBrackets = meteringMode != MeteringMode.CENTER_WEIGHTED
 
     Canvas(modifier = Modifier.fillMaxSize()) {
         val center = Offset(
@@ -354,62 +357,64 @@ private fun MeterReticle(
         val bottom = center.y + frameHalfSize
 
         fun drawReticleLines(lineColor: Color, lineStrokeWidth: Float) {
-            drawLine(
-                color = lineColor,
-                start = Offset(left, top),
-                end = Offset(left + cornerLength, top),
-                strokeWidth = lineStrokeWidth,
-                cap = StrokeCap.Square,
-            )
-            drawLine(
-                color = lineColor,
-                start = Offset(left, top),
-                end = Offset(left, top + cornerLength),
-                strokeWidth = lineStrokeWidth,
-                cap = StrokeCap.Square,
-            )
-            drawLine(
-                color = lineColor,
-                start = Offset(right - cornerLength, top),
-                end = Offset(right, top),
-                strokeWidth = lineStrokeWidth,
-                cap = StrokeCap.Square,
-            )
-            drawLine(
-                color = lineColor,
-                start = Offset(right, top),
-                end = Offset(right, top + cornerLength),
-                strokeWidth = lineStrokeWidth,
-                cap = StrokeCap.Square,
-            )
-            drawLine(
-                color = lineColor,
-                start = Offset(left, bottom),
-                end = Offset(left + cornerLength, bottom),
-                strokeWidth = lineStrokeWidth,
-                cap = StrokeCap.Square,
-            )
-            drawLine(
-                color = lineColor,
-                start = Offset(left, bottom - cornerLength),
-                end = Offset(left, bottom),
-                strokeWidth = lineStrokeWidth,
-                cap = StrokeCap.Square,
-            )
-            drawLine(
-                color = lineColor,
-                start = Offset(right - cornerLength, bottom),
-                end = Offset(right, bottom),
-                strokeWidth = lineStrokeWidth,
-                cap = StrokeCap.Square,
-            )
-            drawLine(
-                color = lineColor,
-                start = Offset(right, bottom - cornerLength),
-                end = Offset(right, bottom),
-                strokeWidth = lineStrokeWidth,
-                cap = StrokeCap.Square,
-            )
+            if (showCornerBrackets) {
+                drawLine(
+                    color = lineColor,
+                    start = Offset(left, top),
+                    end = Offset(left + cornerLength, top),
+                    strokeWidth = lineStrokeWidth,
+                    cap = StrokeCap.Square,
+                )
+                drawLine(
+                    color = lineColor,
+                    start = Offset(left, top),
+                    end = Offset(left, top + cornerLength),
+                    strokeWidth = lineStrokeWidth,
+                    cap = StrokeCap.Square,
+                )
+                drawLine(
+                    color = lineColor,
+                    start = Offset(right - cornerLength, top),
+                    end = Offset(right, top),
+                    strokeWidth = lineStrokeWidth,
+                    cap = StrokeCap.Square,
+                )
+                drawLine(
+                    color = lineColor,
+                    start = Offset(right, top),
+                    end = Offset(right, top + cornerLength),
+                    strokeWidth = lineStrokeWidth,
+                    cap = StrokeCap.Square,
+                )
+                drawLine(
+                    color = lineColor,
+                    start = Offset(left, bottom),
+                    end = Offset(left + cornerLength, bottom),
+                    strokeWidth = lineStrokeWidth,
+                    cap = StrokeCap.Square,
+                )
+                drawLine(
+                    color = lineColor,
+                    start = Offset(left, bottom - cornerLength),
+                    end = Offset(left, bottom),
+                    strokeWidth = lineStrokeWidth,
+                    cap = StrokeCap.Square,
+                )
+                drawLine(
+                    color = lineColor,
+                    start = Offset(right - cornerLength, bottom),
+                    end = Offset(right, bottom),
+                    strokeWidth = lineStrokeWidth,
+                    cap = StrokeCap.Square,
+                )
+                drawLine(
+                    color = lineColor,
+                    start = Offset(right, bottom - cornerLength),
+                    end = Offset(right, bottom),
+                    strokeWidth = lineStrokeWidth,
+                    cap = StrokeCap.Square,
+                )
+            }
             drawLine(
                 color = lineColor,
                 start = Offset(center.x - crossHalfLength, center.y),
