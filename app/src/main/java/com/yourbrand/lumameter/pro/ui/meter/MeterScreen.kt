@@ -2317,15 +2317,8 @@ internal fun formatShutter(value: Double): String {
         }
         "${display}s"
     } else {
-        val reciprocal = 1.0 / value
-        val roundedReciprocal = reciprocal.roundToInt().coerceAtLeast(1)
-        val roundedTenthsSeconds = (value * 10.0).roundToInt() / 10.0
-        when {
-            reciprocal <= 1.05 -> "1s"
-            abs(reciprocal - roundedReciprocal.toDouble()) < 0.05 -> "1/$roundedReciprocal"
-            roundedTenthsSeconds <= 0.0 -> "1/$roundedReciprocal"
-            else -> "${String.format(Locale.getDefault(), "%.1f", roundedTenthsSeconds)}s"
-        }
+        val reciprocal = (1.0 / value).roundToInt().coerceAtLeast(1)
+        if (reciprocal <= 1) "1s" else "1/$reciprocal"
     }
 }
 
