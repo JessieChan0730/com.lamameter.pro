@@ -10,10 +10,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import com.yourbrand.lumameter.pro.domain.exposure.ExposureMode
+import com.yourbrand.lumameter.pro.domain.exposure.MeteringMode
 import com.yourbrand.lumameter.pro.domain.exposure.ViewfinderAspectRatio
 import com.yourbrand.lumameter.pro.ui.meter.MeterRoute
 import com.yourbrand.lumameter.pro.ui.theme.AppThemeMode
 import com.yourbrand.lumameter.pro.ui.theme.LumaMeterTheme
+import com.yourbrand.lumameter.pro.viewmodel.MeterDefaults
+import com.yourbrand.lumameter.pro.viewmodel.PersistedMeterSettings
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -92,6 +96,40 @@ class MainActivity : ComponentActivity() {
                     .apply()
             }
 
+            val initialSettings = remember {
+                PersistedMeterSettings(
+                    meteringMode = MeteringMode.entries.firstOrNull {
+                        it.name == preferences.getString(KEY_METERING_MODE, null)
+                    } ?: PersistedMeterSettings().meteringMode,
+                    selectedIso = preferences.getInt(
+                        KEY_SELECTED_ISO,
+                        MeterDefaults.isoValues[1],
+                    ),
+                    exposureMode = ExposureMode.entries.firstOrNull {
+                        it.name == preferences.getString(KEY_EXPOSURE_MODE, null)
+                    } ?: PersistedMeterSettings().exposureMode,
+                    selectedAperture = preferences.getFloat(
+                        KEY_SELECTED_APERTURE,
+                        MeterDefaults.apertureValues[2].toFloat(),
+                    ).toDouble(),
+                    selectedShutterSeconds = preferences.getFloat(
+                        KEY_SELECTED_SHUTTER,
+                        MeterDefaults.shutterValues[5].toFloat(),
+                    ).toDouble(),
+                    compensationEv = preferences.getFloat(
+                        KEY_COMPENSATION_EV,
+                        0f,
+                    ).toDouble(),
+                    isAeLocked = preferences.getBoolean(KEY_AE_LOCKED, false),
+                    customApertures = parseDoubleList(
+                        preferences.getString(KEY_CUSTOM_APERTURES, null),
+                    ),
+                    customShutters = parseDoubleList(
+                        preferences.getString(KEY_CUSTOM_SHUTTERS, null),
+                    ),
+                )
+            }
+
             LumaMeterTheme(themeMode = themeMode) {
                 MeterRoute(
                     themeMode = themeMode,
@@ -106,6 +144,20 @@ class MainActivity : ComponentActivity() {
                     onLevelIndicatorEnabledChanged = { levelIndicatorEnabled = it },
                     viewfinderAspectRatio = viewfinderAspectRatio,
                     onViewfinderAspectRatioChanged = { viewfinderAspectRatio = it },
+                    initialSettings = initialSettings,
+                    onSettingsChanged = { settings ->
+                        preferences.edit()
+                            .putString(KEY_METERING_MODE, settings.meteringMode.name)
+                            .putInt(KEY_SELECTED_ISO, settings.selectedIso)
+                            .putString(KEY_EXPOSURE_MODE, settings.exposureMode.name)
+                            .putFloat(KEY_SELECTED_APERTURE, settings.selectedAperture.toFloat())
+                            .putFloat(KEY_SELECTED_SHUTTER, settings.selectedShutterSeconds.toFloat())
+                            .putFloat(KEY_COMPENSATION_EV, settings.compensationEv.toFloat())
+                            .putBoolean(KEY_AE_LOCKED, settings.isAeLocked)
+                            .putString(KEY_CUSTOM_APERTURES, serializeDoubleList(settings.customApertures))
+                            .putString(KEY_CUSTOM_SHUTTERS, serializeDoubleList(settings.customShutters))
+                            .apply()
+                    },
                 )
             }
         }
@@ -119,5 +171,23 @@ class MainActivity : ComponentActivity() {
         const val KEY_HISTOGRAM_ENABLED = "histogram_enabled"
         const val KEY_LEVEL_INDICATOR_ENABLED = "level_indicator_enabled"
         const val KEY_VIEWFINDER_ASPECT_RATIO = "viewfinder_aspect_ratio"
+        const val KEY_CUSTOM_APERTURES = "custom_apertures"
+        const val KEY_CUSTOM_SHUTTERS = "custom_shutters"
+        const val KEY_METERING_MODE = "metering_mode"
+        const val KEY_SELECTED_ISO = "selected_iso"
+        const val KEY_EXPOSURE_MODE = "exposure_mode"
+        const val KEY_SELECTED_APERTURE = "selected_aperture"
+        const val KEY_SELECTED_SHUTTER = "selected_shutter"
+        const val KEY_COMPENSATION_EV = "compensation_ev"
+        const val KEY_AE_LOCKED = "ae_locked"
+
+        fun parseDoubleList(raw: String?): List<Double> {
+            if (raw.isNullOrBlank()) return emptyList()
+            return raw.split(",").mapNotNull { it.trim().toDoubleOrNull() }
+        }
+
+        fun serializeDoubleList(values: List<Double>): String {
+            return values.joinToString(",")
+        }
     }
 }
