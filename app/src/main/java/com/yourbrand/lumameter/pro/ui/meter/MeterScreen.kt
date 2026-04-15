@@ -110,6 +110,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -2177,7 +2178,12 @@ private fun CalibrationPage(
         (-5..5).map { v ->
             SliderScaleStop(
                 value = v.toFloat(),
-                label = if (v == 0) "0" else null,
+                label = when (v) {
+                    -5 -> "-5"
+                    0 -> "0"
+                    5 -> "+5"
+                    else -> null
+                },
             )
         }
     }
@@ -2217,9 +2223,9 @@ private fun CalibrationPage(
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
                     Text(
-                        text = stringResource(R.string.calibration_sheet_description),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        text = stringResource(R.string.calibration_sheet_summary),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f),
                     )
 
                     Row(
@@ -2234,22 +2240,24 @@ private fun CalibrationPage(
                             ),
                             style = MaterialTheme.typography.titleMedium,
                         )
-                        if (uiState.calibrationOffsetEv != 0.0) {
-                            TextButton(
-                                onClick = { onCalibrationChanged(0f) },
-                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.Refresh,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(14.dp),
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = stringResource(R.string.calibration_reset),
-                                    maxLines = 1,
-                                )
-                            }
+                        TextButton(
+                            onClick = { onCalibrationChanged(0f) },
+                            enabled = uiState.calibrationOffsetEv != 0.0,
+                            modifier = Modifier.graphicsLayer {
+                                alpha = if (uiState.calibrationOffsetEv != 0.0) 1f else 0f
+                            },
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Refresh,
+                                contentDescription = null,
+                                modifier = Modifier.size(14.dp),
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = stringResource(R.string.calibration_reset),
+                                maxLines = 1,
+                            )
                         }
                     }
 
@@ -2269,23 +2277,11 @@ private fun CalibrationPage(
                     SliderScale(
                         stops = calibrationScaleStops,
                         valueRange = -5f..5f,
+                        labelWidth = 20.dp,
                         tickHeight = 5.dp,
+                        horizontalInset = 10.dp,
+                        labelTextStyle = MaterialTheme.typography.labelMedium,
                     )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                    ) {
-                        Text(
-                            text = "-5",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Text(
-                            text = "+5",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
 
                     Box(
                         modifier = Modifier
@@ -2601,6 +2597,8 @@ private fun SliderScale(
     modifier: Modifier = Modifier,
     labelWidth: Dp = 32.dp,
     tickHeight: Dp = 6.dp,
+    horizontalInset: Dp = 0.dp,
+    labelTextStyle: TextStyle? = null,
 ) {
     if (stops.isEmpty()) {
         return
@@ -2610,6 +2608,7 @@ private fun SliderScale(
     val totalHeight = if (hasLabels) tickHeight + 18.dp else tickHeight
     val tickColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.38f)
     val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val resolvedLabelTextStyle = labelTextStyle ?: MaterialTheme.typography.labelSmall
     val range = (valueRange.endInclusive - valueRange.start).coerceAtLeast(0.0001f)
 
     BoxWithConstraints(
@@ -2617,13 +2616,14 @@ private fun SliderScale(
             .fillMaxWidth()
             .height(totalHeight),
     ) {
+        val availableWidth = (maxWidth - horizontalInset * 2).coerceAtLeast(0.dp)
         val maxLabelOffset = if (maxWidth > labelWidth) maxWidth - labelWidth else 0.dp
         val maxTickOffset = if (maxWidth > 1.dp) maxWidth - 1.dp else 0.dp
         val labelOffsetY = tickHeight + 4.dp
 
-        stops.forEachIndexed { index, stop ->
+        stops.forEach { stop ->
             val fraction = ((stop.value - valueRange.start) / range).coerceIn(0f, 1f)
-            val centerOffset = maxWidth * fraction
+            val centerOffset = horizontalInset + availableWidth * fraction
             val rawTickOffset = centerOffset - 0.5.dp
             val tickOffset = when {
                 rawTickOffset < 0.dp -> 0.dp
@@ -2647,9 +2647,8 @@ private fun SliderScale(
                     else -> rawLabelOffset
                 }
                 val labelTextAlign = when {
-                    stops.size == 1 -> TextAlign.Center
-                    index == 0 -> TextAlign.Start
-                    index == stops.lastIndex -> TextAlign.End
+                    rawLabelOffset < 0.dp -> TextAlign.Start
+                    rawLabelOffset > maxLabelOffset -> TextAlign.End
                     else -> TextAlign.Center
                 }
 
@@ -2658,7 +2657,7 @@ private fun SliderScale(
                     modifier = Modifier
                         .offset(x = labelOffset, y = labelOffsetY)
                         .width(labelWidth),
-                    style = MaterialTheme.typography.labelSmall,
+                    style = resolvedLabelTextStyle,
                     color = labelColor,
                     textAlign = labelTextAlign,
                     maxLines = 1,

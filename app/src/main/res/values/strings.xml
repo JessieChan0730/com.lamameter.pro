@@ -93,6 +93,7 @@
     <string name="aperture_mode_description">Fix the aperture and let the app solve shutter speed.</string>
     <string name="shutter_mode_description">Fix the shutter speed and let the app solve aperture.</string>
     <string name="calibration_title">Meter Calibration</string>
+    <string name="calibration_sheet_summary">Correct device-to-device metering bias so metering stays consistent.</string>
     <string name="calibration_sheet_description">Each phone sensor reads brightness slightly differently. Compare the EV shown here with a trusted light meter under the same light and adjust the offset until they match. Unlike exposure compensation, this corrects the EV reading itself — set it once for your device.</string>
     <string name="calibration_presets_section">My Presets</string>
     <string name="add_calibration_preset">Save as Preset</string>

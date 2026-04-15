@@ -93,6 +93,7 @@
     <string name="aperture_mode_description">固定光圈，由应用计算快门速度。</string>
     <string name="shutter_mode_description">固定快门速度，由应用计算光圈值。</string>
     <string name="calibration_title">测光校准</string>
+    <string name="calibration_sheet_summary">用于修正不同设备之间的测光偏差，让测光数据更一致。</string>
     <string name="calibration_sheet_description">不同手机的传感器对亮度的读取存在偏差。将本应用的 EV 读数与可信测光表在相同光线下对比，调整偏移量使两者一致即可。与曝光补偿不同，校准直接修正 EV 读数本身——只需为你的设备设置一次。</string>
     <string name="calibration_presets_section">我的预设</string>
     <string name="add_calibration_preset">保存为预设</string>
