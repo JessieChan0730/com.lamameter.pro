@@ -56,7 +56,7 @@ import androidx.compose.material.icons.rounded.Brightness6
 import androidx.compose.material.icons.rounded.BrightnessAuto
 import androidx.compose.material.icons.rounded.CameraAlt
 import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.DeleteOutline
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Equalizer
 import androidx.compose.material.icons.rounded.GridOff
 import androidx.compose.material.icons.rounded.GridOn
@@ -118,6 +118,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.ViewModelProvider
 import com.yourbrand.lumameter.pro.R
 import com.yourbrand.lumameter.pro.domain.exposure.ExposureMode
 import com.yourbrand.lumameter.pro.domain.exposure.LuminanceReading
@@ -181,7 +182,21 @@ fun MeterRoute(
     onLevelIndicatorEnabledChanged: (Boolean) -> Unit,
     viewfinderAspectRatio: ViewfinderAspectRatio,
     onViewfinderAspectRatioChanged: (ViewfinderAspectRatio) -> Unit,
-    viewModel: MeterViewModel = viewModel(),
+    initialCustomApertures: List<Double> = emptyList(),
+    initialCustomShutters: List<Double> = emptyList(),
+    onCustomValuesChanged: ((apertures: List<Double>, shutters: List<Double>) -> Unit)? = null,
+    viewModel: MeterViewModel = viewModel(
+        factory = object : ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST")
+            override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
+                return MeterViewModel(
+                    initialCustomApertures = initialCustomApertures,
+                    initialCustomShutters = initialCustomShutters,
+                    onCustomValuesChanged = onCustomValuesChanged,
+                ) as T
+            }
+        },
+    ),
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -1802,11 +1817,11 @@ private fun ValueLibraryPage(
             )
 
             MeterPanel(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.weight(1f),
             ) {
                 Column(
                     modifier = Modifier
-                        .fillMaxWidth()
+                        .fillMaxSize()
                         .padding(horizontal = 18.dp, vertical = 18.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
@@ -1818,7 +1833,7 @@ private fun ValueLibraryPage(
                     LazyColumn(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(420.dp),
+                            .weight(1f),
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
                         items(values) { value ->
@@ -1906,29 +1921,31 @@ private fun ValueRow(
                 )
             }
 
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                if (selected) {
-                    Icon(
-                        imageVector = Icons.Rounded.Check,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                    )
-                }
-                if (onDelete != null) {
-                    IconButton(onClick = onDelete) {
-                        Icon(
-                            imageVector = Icons.Rounded.DeleteOutline,
-                            contentDescription = stringResource(R.string.delete_custom_value),
-                            tint = if (selected) {
-                                MaterialTheme.colorScheme.onPrimaryContainer
+            if (onDelete != null) {
+                Box(
+                    modifier = Modifier
+                        .size(28.dp)
+                        .background(
+                            color = if (selected) {
+                                MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.15f)
                             } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant
+                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.12f)
                             },
+                            shape = CircleShape,
                         )
-                    }
+                        .clickable(onClick = onDelete),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Close,
+                        contentDescription = stringResource(R.string.delete_custom_value),
+                        modifier = Modifier.size(16.dp),
+                        tint = if (selected) {
+                            MaterialTheme.colorScheme.onPrimaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                    )
                 }
             }
         }
@@ -2085,23 +2102,12 @@ private fun ValueInputSheet(
             keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
             singleLine = true,
         )
-        Row(
+        Button(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            onClick = { parsedValue?.let(onSubmit) },
+            enabled = canSubmit,
         ) {
-            TextButton(
-                modifier = Modifier.weight(1f),
-                onClick = onDismiss,
-            ) {
-                Text(stringResource(R.string.cancel))
-            }
-            Button(
-                modifier = Modifier.weight(1f),
-                onClick = { parsedValue?.let(onSubmit) },
-                enabled = canSubmit,
-            ) {
-                Text(stringResource(R.string.add_value))
-            }
+            Text(stringResource(R.string.add_value))
         }
         Spacer(modifier = Modifier.height(8.dp))
     }
