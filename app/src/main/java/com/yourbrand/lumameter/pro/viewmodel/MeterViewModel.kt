@@ -1,6 +1,7 @@
 package com.yourbrand.lumameter.pro.viewmodel
 
 import androidx.lifecycle.ViewModel
+import com.yourbrand.lumameter.pro.domain.exposure.CalibrationPreset
 import com.yourbrand.lumameter.pro.domain.exposure.ExposureCalculator
 import com.yourbrand.lumameter.pro.domain.exposure.ExposureMode
 import com.yourbrand.lumameter.pro.domain.exposure.ExposureResult
@@ -11,6 +12,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import java.util.UUID
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -53,6 +55,9 @@ data class PersistedMeterSettings(
     val isAeLocked: Boolean = false,
     val customApertures: List<Double> = emptyList(),
     val customShutters: List<Double> = emptyList(),
+    val calibrationOffsetEv: Double = 0.0,
+    val calibrationPresets: List<CalibrationPreset> = emptyList(),
+    val activeCalibrationPresetId: String? = null,
 )
 
 enum class MeterStatus {
@@ -84,6 +89,8 @@ data class MeterUiState(
     val selectedShutterSeconds: Double = 1.0 / 125.0,
     val compensationEv: Double = 0.0,
     val calibrationOffsetEv: Double = 0.0,
+    val calibrationPresets: List<CalibrationPreset> = emptyList(),
+    val activeCalibrationPresetId: String? = null,
     val liveReading: LuminanceReading? = null,
     val exposureResult: ExposureResult = ExposureResult.placeholder(),
     val meterStatus: MeterStatus = MeterStatus.WAITING,
@@ -112,6 +119,9 @@ class MeterViewModel(
             isAeLocked = initialSettings.isAeLocked,
             apertureOptions = (MeterDefaults.apertureValues + initialSettings.customApertures).distinct().sorted(),
             shutterOptions = (MeterDefaults.shutterValues + initialSettings.customShutters).distinct().sorted(),
+            calibrationOffsetEv = initialSettings.calibrationOffsetEv,
+            calibrationPresets = initialSettings.calibrationPresets,
+            activeCalibrationPresetId = initialSettings.activeCalibrationPresetId,
         )
     )
     val uiState: StateFlow<MeterUiState> = _uiState.asStateFlow()
@@ -347,10 +357,61 @@ class MeterViewModel(
     }
 
     fun setCalibrationOffset(value: Float) {
-        val snappedValue = snapToStep(value.toDouble(), step = 0.1, min = -2.0, max = 2.0)
+        val snappedValue = snapToStep(value.toDouble(), step = 0.1, min = -5.0, max = 5.0)
         _uiState.update { current ->
-            buildState(current.copy(calibrationOffsetEv = snappedValue), activeBaseEv100())
+            buildState(
+                current.copy(
+                    calibrationOffsetEv = snappedValue,
+                    activeCalibrationPresetId = null,
+                ),
+                activeBaseEv100(),
+            )
         }
+        notifySettingsChanged()
+    }
+
+    fun addCalibrationPreset(name: String, notes: String = "") {
+        _uiState.update { current ->
+            val preset = CalibrationPreset(
+                id = UUID.randomUUID().toString(),
+                name = name.trim(),
+                offsetEv = current.calibrationOffsetEv,
+                notes = notes.trim(),
+            )
+            current.copy(
+                calibrationPresets = current.calibrationPresets + preset,
+                activeCalibrationPresetId = preset.id,
+            )
+        }
+        notifySettingsChanged()
+    }
+
+    fun deleteCalibrationPreset(id: String) {
+        _uiState.update { current ->
+            val nextPresets = current.calibrationPresets.filter { it.id != id }
+            val nextActiveId = if (current.activeCalibrationPresetId == id) null
+                else current.activeCalibrationPresetId
+            current.copy(
+                calibrationPresets = nextPresets,
+                activeCalibrationPresetId = nextActiveId,
+            )
+        }
+        notifySettingsChanged()
+    }
+
+    fun selectCalibrationPreset(id: String) {
+        _uiState.update { current ->
+            val preset = current.calibrationPresets.find { it.id == id }
+                ?: return@update current
+            buildState(
+                current.copy(
+                    calibrationOffsetEv = preset.offsetEv,
+                    activeCalibrationPresetId = id,
+                ),
+                activeBaseEv100(),
+            )
+        }
+        notifySettingsChanged()
     }
 
     fun toggleAeLock() {
@@ -392,6 +453,9 @@ class MeterViewModel(
                 customShutters = state.shutterOptions.filter { shutter ->
                     MeterDefaults.shutterValues.none { valuesEqual(it, shutter) }
                 },
+                calibrationOffsetEv = state.calibrationOffsetEv,
+                calibrationPresets = state.calibrationPresets,
+                activeCalibrationPresetId = state.activeCalibrationPresetId,
             )
         )
     }

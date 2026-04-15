@@ -10,6 +10,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import com.yourbrand.lumameter.pro.domain.exposure.CalibrationPreset
 import com.yourbrand.lumameter.pro.domain.exposure.ExposureMode
 import com.yourbrand.lumameter.pro.domain.exposure.MeteringMode
 import com.yourbrand.lumameter.pro.domain.exposure.ViewfinderAspectRatio
@@ -127,6 +128,17 @@ class MainActivity : ComponentActivity() {
                     customShutters = parseDoubleList(
                         preferences.getString(KEY_CUSTOM_SHUTTERS, null),
                     ),
+                    calibrationOffsetEv = preferences.getFloat(
+                        KEY_CALIBRATION_OFFSET,
+                        0f,
+                    ).toDouble(),
+                    calibrationPresets = parseCalibrationPresets(
+                        preferences.getString(KEY_CALIBRATION_PRESETS, null),
+                    ),
+                    activeCalibrationPresetId = preferences.getString(
+                        KEY_ACTIVE_CALIBRATION_PRESET,
+                        null,
+                    ),
                 )
             }
 
@@ -156,6 +168,9 @@ class MainActivity : ComponentActivity() {
                             .putBoolean(KEY_AE_LOCKED, settings.isAeLocked)
                             .putString(KEY_CUSTOM_APERTURES, serializeDoubleList(settings.customApertures))
                             .putString(KEY_CUSTOM_SHUTTERS, serializeDoubleList(settings.customShutters))
+                            .putFloat(KEY_CALIBRATION_OFFSET, settings.calibrationOffsetEv.toFloat())
+                            .putString(KEY_CALIBRATION_PRESETS, serializeCalibrationPresets(settings.calibrationPresets))
+                            .putString(KEY_ACTIVE_CALIBRATION_PRESET, settings.activeCalibrationPresetId)
                             .apply()
                     },
                 )
@@ -180,6 +195,9 @@ class MainActivity : ComponentActivity() {
         const val KEY_SELECTED_SHUTTER = "selected_shutter"
         const val KEY_COMPENSATION_EV = "compensation_ev"
         const val KEY_AE_LOCKED = "ae_locked"
+        const val KEY_CALIBRATION_OFFSET = "calibration_offset"
+        const val KEY_CALIBRATION_PRESETS = "calibration_presets"
+        const val KEY_ACTIVE_CALIBRATION_PRESET = "active_calibration_preset"
 
         fun parseDoubleList(raw: String?): List<Double> {
             if (raw.isNullOrBlank()) return emptyList()
@@ -188,6 +206,33 @@ class MainActivity : ComponentActivity() {
 
         fun serializeDoubleList(values: List<Double>): String {
             return values.joinToString(",")
+        }
+
+        private const val PRESET_RECORD_SEPARATOR = ";;"
+        private const val PRESET_FIELD_SEPARATOR = "|"
+
+        fun parseCalibrationPresets(raw: String?): List<CalibrationPreset> {
+            if (raw.isNullOrBlank()) return emptyList()
+            return raw.split(PRESET_RECORD_SEPARATOR).mapNotNull { record ->
+                val parts = record.split(PRESET_FIELD_SEPARATOR, limit = 4)
+                if (parts.size >= 3) {
+                    val offset = parts[2].toDoubleOrNull() ?: return@mapNotNull null
+                    CalibrationPreset(
+                        id = parts[0],
+                        name = parts[1],
+                        offsetEv = offset,
+                        notes = parts.getOrElse(3) { "" },
+                    )
+                } else {
+                    null
+                }
+            }
+        }
+
+        fun serializeCalibrationPresets(presets: List<CalibrationPreset>): String {
+            return presets.joinToString(PRESET_RECORD_SEPARATOR) { preset ->
+                "${preset.id}${PRESET_FIELD_SEPARATOR}${preset.name}${PRESET_FIELD_SEPARATOR}${preset.offsetEv}${PRESET_FIELD_SEPARATOR}${preset.notes}"
+            }
         }
     }
 }

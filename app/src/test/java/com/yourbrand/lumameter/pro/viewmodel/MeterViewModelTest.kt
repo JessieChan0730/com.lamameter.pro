@@ -248,7 +248,7 @@ class MeterViewModelTest {
 
         val state = viewModel.uiState.value
         assertEquals(3.0, state.compensationEv, 0.0001)
-        assertEquals(-2.0, state.calibrationOffsetEv, 0.0001)
+        assertEquals(-5.0, state.calibrationOffsetEv, 0.0001)
     }
 
     @Test
@@ -337,6 +337,76 @@ class MeterViewModelTest {
         val state = viewModel.uiState.value
         assertTrue(state.isZoomSupported)
         assertEquals(listOf(false, true, true, false, false), state.zoomPresets.map { it.enabled })
+    }
+
+    @Test
+    fun `adding calibration preset saves name and current offset`() {
+        val viewModel = MeterViewModel()
+
+        viewModel.setCalibrationOffset(-1f)
+        viewModel.addCalibrationPreset("Canon R10")
+
+        val state = viewModel.uiState.value
+        assertEquals(1, state.calibrationPresets.size)
+        assertEquals("Canon R10", state.calibrationPresets[0].name)
+        assertEquals(-1.0, state.calibrationPresets[0].offsetEv, 0.0001)
+        assertEquals(state.calibrationPresets[0].id, state.activeCalibrationPresetId)
+    }
+
+    @Test
+    fun `selecting preset applies its offset`() {
+        val viewModel = MeterViewModel(exposureCalculator = calculator)
+
+        viewModel.setCalibrationOffset(-2f)
+        viewModel.addCalibrationPreset("Canon R10")
+        viewModel.setCalibrationOffset(0f)
+
+        val presetId = viewModel.uiState.value.calibrationPresets[0].id
+        viewModel.selectCalibrationPreset(presetId)
+
+        val state = viewModel.uiState.value
+        assertEquals(-2.0, state.calibrationOffsetEv, 0.0001)
+        assertEquals(presetId, state.activeCalibrationPresetId)
+    }
+
+    @Test
+    fun `manual slider change clears active preset`() {
+        val viewModel = MeterViewModel()
+
+        viewModel.setCalibrationOffset(-1f)
+        viewModel.addCalibrationPreset("Canon R10")
+        val presetId = viewModel.uiState.value.calibrationPresets[0].id
+        assertEquals(presetId, viewModel.uiState.value.activeCalibrationPresetId)
+
+        viewModel.setCalibrationOffset(0.5f)
+
+        assertNull(viewModel.uiState.value.activeCalibrationPresetId)
+    }
+
+    @Test
+    fun `deleting active preset clears selection`() {
+        val viewModel = MeterViewModel()
+
+        viewModel.setCalibrationOffset(-1f)
+        viewModel.addCalibrationPreset("Canon R10")
+        val presetId = viewModel.uiState.value.calibrationPresets[0].id
+
+        viewModel.deleteCalibrationPreset(presetId)
+
+        val state = viewModel.uiState.value
+        assertTrue(state.calibrationPresets.isEmpty())
+        assertNull(state.activeCalibrationPresetId)
+    }
+
+    @Test
+    fun `calibration offset persists through initial settings`() {
+        val viewModel = MeterViewModel(
+            initialSettings = PersistedMeterSettings(
+                calibrationOffsetEv = -3.5,
+            ),
+        )
+
+        assertEquals(-3.5, viewModel.uiState.value.calibrationOffsetEv, 0.0001)
     }
 
     private fun sampleReading(meteredLuma: Double): LuminanceReading {

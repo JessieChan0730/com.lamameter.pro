@@ -174,6 +174,13 @@ data class LuminanceReading(
 
 const val PREVIEW_CONTAINER_ASPECT_RATIO = 4f / 3f
 
+data class CalibrationPreset(
+    val id: String,
+    val name: String,
+    val offsetEv: Double,
+    val notes: String = "",
+)
+
 data class ExposureResult(
     val sceneEv100: Double,
     val workingEv: Double,
