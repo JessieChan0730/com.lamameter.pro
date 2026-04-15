@@ -6,6 +6,7 @@ import androidx.camera.core.ImageInfo
 import androidx.camera.core.ImageProxy
 import androidx.camera.core.impl.TagBundle
 import androidx.camera.core.impl.utils.ExifData
+import com.yourbrand.lumameter.pro.domain.exposure.CameraCaptureMetadata
 import com.yourbrand.lumameter.pro.domain.exposure.LuminanceReading
 import com.yourbrand.lumameter.pro.domain.exposure.MeteringMode
 import com.yourbrand.lumameter.pro.domain.exposure.MeteringPoint
@@ -233,17 +234,41 @@ class LuminanceAnalyzerTest {
         assertEquals(8, histogram[224])
     }
 
+    @Test
+    fun `analyzer forwards capture metadata with the reading`() {
+        val image = fakeImageProxy(
+            width = 4,
+            height = 4,
+        ) { _, _ -> 118 }
+        val metadata = CameraCaptureMetadata(
+            aperture = 1.8,
+            exposureTimeNs = 12_500_000L,
+            sensitivityIso = 100,
+        )
+
+        val reading = analyze(
+            image = image,
+            meteringMode = MeteringMode.AVERAGE,
+            meteringPoint = MeteringPoint.Center,
+            captureMetadata = metadata,
+        )
+
+        assertEquals(metadata, reading?.captureMetadata)
+    }
+
     private fun analyze(
         image: FakeImageProxy,
         meteringMode: MeteringMode,
         meteringPoint: MeteringPoint,
         viewfinderAspectRatio: ViewfinderAspectRatio = ViewfinderAspectRatio.FOUR_THREE,
+        captureMetadata: CameraCaptureMetadata? = null,
     ): LuminanceReading? {
         var reading: LuminanceReading? = null
         val analyzer = LuminanceAnalyzer(
             meteringModeProvider = { meteringMode },
             meteringPointProvider = { meteringPoint },
             viewfinderAspectRatioProvider = { viewfinderAspectRatio },
+            captureMetadataProvider = { captureMetadata },
             onReadingAvailable = { reading = it },
         )
 

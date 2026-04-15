@@ -8,6 +8,7 @@ import kotlin.math.pow
 class ExposureCalculatorTest {
 
     private val calculator = ExposureCalculator()
+    private val middleGrayLuma = 118.0
 
     @Test
     fun `luma below zero clamps to minimum ev`() {
@@ -17,10 +18,10 @@ class ExposureCalculatorTest {
     }
 
     @Test
-    fun `luma above sensor range clamps to maximum ev`() {
+    fun `luma above sensor range clamps to sensor white point`() {
         val result = calculator.lumaToEv100(400.0)
 
-        assertEquals(16.0, result, 0.0001)
+        assertEquals(calculator.lumaToEv100(255.0), result, 0.0001)
     }
 
     @Test
@@ -29,6 +30,42 @@ class ExposureCalculatorTest {
         val brightEv = calculator.lumaToEv100(220.0)
 
         assertTrue(brightEv > darkEv)
+    }
+
+    @Test
+    fun `capture metadata drives ev estimate around camera exposure`() {
+        val result = calculator.lumaToEv100(
+            luma = middleGrayLuma,
+            captureMetadata = CameraCaptureMetadata(
+                aperture = 1.8,
+                exposureTimeNs = 12_500_000L,
+                sensitivityIso = 100,
+            ),
+        )
+
+        assertEquals(8.0, result, 0.2)
+    }
+
+    @Test
+    fun `brighter than middle gray region increases ev when capture metadata is available`() {
+        val darkerRegionEv = calculator.lumaToEv100(
+            luma = 80.0,
+            captureMetadata = CameraCaptureMetadata(
+                aperture = 1.8,
+                exposureTimeNs = 12_500_000L,
+                sensitivityIso = 100,
+            ),
+        )
+        val brighterRegionEv = calculator.lumaToEv100(
+            luma = 180.0,
+            captureMetadata = CameraCaptureMetadata(
+                aperture = 1.8,
+                exposureTimeNs = 12_500_000L,
+                sensitivityIso = 100,
+            ),
+        )
+
+        assertTrue(brighterRegionEv > darkerRegionEv)
     }
 
     @Test

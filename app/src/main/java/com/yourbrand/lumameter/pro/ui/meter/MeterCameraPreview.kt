@@ -1,10 +1,17 @@
 package com.yourbrand.lumameter.pro.ui.meter
 
 import android.content.Context
+import android.hardware.camera2.CameraCaptureSession
+import android.hardware.camera2.CameraCharacteristics
+import android.hardware.camera2.CaptureRequest
+import android.hardware.camera2.CaptureResult
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.hardware.camera2.TotalCaptureResult
+import androidx.camera.camera2.interop.Camera2CameraInfo
+import androidx.camera.camera2.interop.Camera2Interop
 import androidx.camera.core.AspectRatio
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
@@ -41,13 +48,16 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.yourbrand.lumameter.pro.R
 import com.yourbrand.lumameter.pro.data.camera.LuminanceAnalyzer
+import com.yourbrand.lumameter.pro.domain.exposure.CameraCaptureMetadata
 import com.yourbrand.lumameter.pro.domain.exposure.LuminanceReading
 import com.yourbrand.lumameter.pro.domain.exposure.MeteringMode
 import com.yourbrand.lumameter.pro.domain.exposure.MeteringPoint
 import com.yourbrand.lumameter.pro.domain.exposure.ViewfinderAspectRatio
 import java.util.concurrent.CancellationException
 import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicReference
 import kotlin.math.abs
+import kotlin.math.roundToInt
 
 @Composable
 fun MeterCameraPreview(
@@ -88,6 +98,14 @@ fun MeterCameraPreview(
     var boundCamera by remember { mutableStateOf<Camera?>(null) }
     var lastAppliedZoomRatio by remember { mutableStateOf<Float?>(null) }
     var latestZoomRequestToken by remember { mutableStateOf(0) }
+    val latestCaptureMetadata = remember { AtomicReference<CameraCaptureMetadata?>(null) }
+    val fallbackAperture = remember { AtomicReference<Double?>(null) }
+    val captureMetadataCallback = remember {
+        buildCaptureMetadataCallback(
+            captureMetadata = latestCaptureMetadata,
+            fallbackAperture = fallbackAperture,
+        )
+    }
 
     DisposableEffect(lifecycleOwner, previewView) {
         val analyzerExecutor = Executors.newSingleThreadExecutor()
@@ -99,14 +117,22 @@ fun MeterCameraPreview(
                 val provider = providerFuture.get()
                 cameraProvider = provider
 
-                val preview = Preview.Builder()
+                val previewBuilder = Preview.Builder()
                     .setTargetAspectRatio(AspectRatio.RATIO_4_3)
+                val analysisBuilder = ImageAnalysis.Builder()
+                    .setTargetAspectRatio(AspectRatio.RATIO_4_3)
+                    .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+
+                Camera2Interop.Extender(previewBuilder)
+                    .setSessionCaptureCallback(captureMetadataCallback)
+                Camera2Interop.Extender(analysisBuilder)
+                    .setSessionCaptureCallback(captureMetadataCallback)
+
+                val preview = previewBuilder
                     .build()
                     .also { it.setSurfaceProvider(previewView.surfaceProvider) }
 
-                val analysis = ImageAnalysis.Builder()
-                    .setTargetAspectRatio(AspectRatio.RATIO_4_3)
-                    .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                val analysis = analysisBuilder
                     .build()
 
                 analysis.setAnalyzer(
@@ -115,6 +141,7 @@ fun MeterCameraPreview(
                         meteringModeProvider = { currentMeteringMode },
                         meteringPointProvider = { currentMeteringPoint },
                         viewfinderAspectRatioProvider = { currentViewfinderAspectRatio },
+                        captureMetadataProvider = { latestCaptureMetadata.get() },
                         onReadingAvailable = { reading -> currentReadingCallback(reading) },
                     )
                 )
@@ -127,6 +154,7 @@ fun MeterCameraPreview(
                     analysis,
                 )
                 boundCamera = camera
+                fallbackAperture.set(resolveFallbackAperture(camera))
 
                 val zoomState = camera.cameraInfo.zoomState.value
                 val minZoomRatio = zoomState?.minZoomRatio ?: DEFAULT_ZOOM_RATIO
@@ -165,6 +193,8 @@ fun MeterCameraPreview(
             boundCamera = null
             lastAppliedZoomRatio = null
             latestZoomRequestToken += 1
+            latestCaptureMetadata.set(null)
+            fallbackAperture.set(null)
             cameraProvider?.unbindAll()
             analyzerExecutor.shutdown()
         }
@@ -297,6 +327,59 @@ private fun Throwable.isZoomRequestCancellation(): Boolean {
         current = current.cause
     }
     return false
+}
+
+private fun buildCaptureMetadataCallback(
+    captureMetadata: AtomicReference<CameraCaptureMetadata?>,
+    fallbackAperture: AtomicReference<Double?>,
+): CameraCaptureSession.CaptureCallback {
+    return object : CameraCaptureSession.CaptureCallback() {
+        override fun onCaptureCompleted(
+            session: CameraCaptureSession,
+            request: CaptureRequest,
+            result: TotalCaptureResult,
+        ) {
+            captureMetadata.set(
+                result.toCameraCaptureMetadata(
+                    fallbackAperture = fallbackAperture.get(),
+                )
+            )
+        }
+    }
+}
+
+private fun resolveFallbackAperture(camera: Camera): Double? {
+    val cameraInfo = Camera2CameraInfo.from(camera.cameraInfo)
+    val availableApertures = cameraInfo.getCameraCharacteristic(
+        CameraCharacteristics.LENS_INFO_AVAILABLE_APERTURES,
+    )
+    return availableApertures
+        ?.firstOrNull()
+        ?.takeIf { it > 0f }
+        ?.toDouble()
+}
+
+private fun TotalCaptureResult.toCameraCaptureMetadata(
+    fallbackAperture: Double?,
+): CameraCaptureMetadata? {
+    val aperture = get(CaptureResult.LENS_APERTURE)?.toDouble()
+        ?: fallbackAperture
+    val exposureTimeNs = get(CaptureResult.SENSOR_EXPOSURE_TIME)
+    val sensorSensitivity = get(CaptureResult.SENSOR_SENSITIVITY)
+    val postRawSensitivityBoost = get(CaptureResult.CONTROL_POST_RAW_SENSITIVITY_BOOST) ?: 100
+    val effectiveSensitivity = sensorSensitivity
+        ?.takeIf { it > 0 }
+        ?.let { sensitivity ->
+            (sensitivity * (postRawSensitivityBoost / 100.0)).roundToInt()
+        }
+
+    val metadata = CameraCaptureMetadata(
+        aperture = aperture,
+        exposureTimeNs = exposureTimeNs,
+        sensitivityIso = effectiveSensitivity,
+    )
+
+    return metadata.takeIf { it.isComplete }
 }
 
 @Composable

@@ -50,6 +50,17 @@ data class MeteringPoint(
     }
 }
 
+data class CameraCaptureMetadata(
+    val aperture: Double? = null,
+    val exposureTimeNs: Long? = null,
+    val sensitivityIso: Int? = null,
+) {
+    val isComplete: Boolean
+        get() = (aperture ?: 0.0) > 0.0 &&
+            (exposureTimeNs ?: 0L) > 0L &&
+            (sensitivityIso ?: 0) > 0
+}
+
 data class ViewfinderRect(
     val left: Float,
     val top: Float,
@@ -131,6 +142,7 @@ data class LuminanceReading(
     val rotationDegrees: Int,
     val meteringMode: MeteringMode,
     val meteringPoint: MeteringPoint,
+    val captureMetadata: CameraCaptureMetadata? = null,
     val histogram: IntArray = IntArray(HISTOGRAM_BIN_COUNT),
 ) {
     override fun equals(other: Any?): Boolean {
@@ -143,6 +155,7 @@ data class LuminanceReading(
             rotationDegrees == other.rotationDegrees &&
             meteringMode == other.meteringMode &&
             meteringPoint == other.meteringPoint &&
+            captureMetadata == other.captureMetadata &&
             histogram.contentEquals(other.histogram)
     }
 
@@ -154,6 +167,7 @@ data class LuminanceReading(
         result = 31 * result + rotationDegrees
         result = 31 * result + meteringMode.hashCode()
         result = 31 * result + meteringPoint.hashCode()
+        result = 31 * result + (captureMetadata?.hashCode() ?: 0)
         result = 31 * result + histogram.contentHashCode()
         return result
     }

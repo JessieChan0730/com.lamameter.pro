@@ -2,6 +2,7 @@ package com.yourbrand.lumameter.pro.viewmodel
 
 import com.yourbrand.lumameter.pro.domain.exposure.ExposureMode
 import com.yourbrand.lumameter.pro.domain.exposure.ExposureCalculator
+import com.yourbrand.lumameter.pro.domain.exposure.CameraCaptureMetadata
 import com.yourbrand.lumameter.pro.domain.exposure.LuminanceReading
 import com.yourbrand.lumameter.pro.domain.exposure.MeteringMode
 import com.yourbrand.lumameter.pro.domain.exposure.MeteringPoint
@@ -45,6 +46,31 @@ class MeterViewModelTest {
 
         assertEquals(expectedEv100, state.exposureResult.sceneEv100, 0.0001)
         assertEquals(MeterStatus.LIVE, state.meterStatus)
+    }
+
+    @Test
+    fun `frame analysis prefers capture metadata when present`() {
+        val viewModel = MeterViewModel(exposureCalculator = calculator)
+        val reading = sampleReading(
+            meteredLuma = 118.0,
+            captureMetadata = CameraCaptureMetadata(
+                aperture = 1.8,
+                exposureTimeNs = 12_500_000L,
+                sensitivityIso = 100,
+            ),
+        )
+
+        viewModel.onFrameAnalyzed(reading)
+
+        val state = viewModel.uiState.value
+        assertEquals(
+            calculator.lumaToEv100(
+                luma = 118.0,
+                captureMetadata = reading.captureMetadata,
+            ),
+            state.exposureResult.sceneEv100,
+            0.0001,
+        )
     }
 
     @Test
@@ -339,7 +365,10 @@ class MeterViewModelTest {
         assertEquals(listOf(false, true, true, false, false), state.zoomPresets.map { it.enabled })
     }
 
-    private fun sampleReading(meteredLuma: Double): LuminanceReading {
+    private fun sampleReading(
+        meteredLuma: Double,
+        captureMetadata: CameraCaptureMetadata? = null,
+    ): LuminanceReading {
         return LuminanceReading(
             meteredLuma = meteredLuma,
             averageLuma = meteredLuma,
@@ -348,6 +377,7 @@ class MeterViewModelTest {
             rotationDegrees = 0,
             meteringMode = MeteringMode.SPOT,
             meteringPoint = MeteringPoint.Center,
+            captureMetadata = captureMetadata,
         )
     }
 }
