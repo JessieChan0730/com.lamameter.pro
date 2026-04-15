@@ -133,6 +133,7 @@ import com.yourbrand.lumameter.pro.viewmodel.MeterDefaults
 import com.yourbrand.lumameter.pro.viewmodel.MeterStatus
 import com.yourbrand.lumameter.pro.viewmodel.MeterUiState
 import com.yourbrand.lumameter.pro.viewmodel.MeterViewModel
+import com.yourbrand.lumameter.pro.viewmodel.PersistedMeterSettings
 import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.hypot
@@ -182,17 +183,15 @@ fun MeterRoute(
     onLevelIndicatorEnabledChanged: (Boolean) -> Unit,
     viewfinderAspectRatio: ViewfinderAspectRatio,
     onViewfinderAspectRatioChanged: (ViewfinderAspectRatio) -> Unit,
-    initialCustomApertures: List<Double> = emptyList(),
-    initialCustomShutters: List<Double> = emptyList(),
-    onCustomValuesChanged: ((apertures: List<Double>, shutters: List<Double>) -> Unit)? = null,
+    initialSettings: PersistedMeterSettings = PersistedMeterSettings(),
+    onSettingsChanged: ((PersistedMeterSettings) -> Unit)? = null,
     viewModel: MeterViewModel = viewModel(
         factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
                 return MeterViewModel(
-                    initialCustomApertures = initialCustomApertures,
-                    initialCustomShutters = initialCustomShutters,
-                    onCustomValuesChanged = onCustomValuesChanged,
+                    initialSettings = initialSettings,
+                    onSettingsChanged = onSettingsChanged,
                 ) as T
             }
         },

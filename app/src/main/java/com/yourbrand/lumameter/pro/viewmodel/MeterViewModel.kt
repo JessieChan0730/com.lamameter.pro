@@ -43,6 +43,18 @@ object MeterDefaults {
     )
 }
 
+data class PersistedMeterSettings(
+    val meteringMode: MeteringMode = MeteringMode.AVERAGE,
+    val selectedIso: Int = MeterDefaults.isoValues[1],
+    val exposureMode: ExposureMode = ExposureMode.APERTURE_PRIORITY,
+    val selectedAperture: Double = MeterDefaults.apertureValues[2],
+    val selectedShutterSeconds: Double = MeterDefaults.shutterValues[5],
+    val compensationEv: Double = 0.0,
+    val isAeLocked: Boolean = false,
+    val customApertures: List<Double> = emptyList(),
+    val customShutters: List<Double> = emptyList(),
+)
+
 enum class MeterStatus {
     WAITING,
     LIVE,
@@ -58,7 +70,7 @@ data class ZoomPresetUiModel(
 
 data class MeterUiState(
     val exposureMode: ExposureMode = ExposureMode.APERTURE_PRIORITY,
-    val meteringMode: MeteringMode = MeteringMode.SPOT,
+    val meteringMode: MeteringMode = MeteringMode.AVERAGE,
     val meteringPoint: MeteringPoint = MeteringPoint.Center,
     val hasCustomSpotMeteringPoint: Boolean = false,
     val isAeLocked: Boolean = false,
@@ -85,13 +97,21 @@ data class MeterUiState(
 
 class MeterViewModel(
     private val exposureCalculator: ExposureCalculator = ExposureCalculator(),
+    initialSettings: PersistedMeterSettings = PersistedMeterSettings(),
+    private val onSettingsChanged: ((PersistedMeterSettings) -> Unit)? = null,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(
         MeterUiState(
-            selectedIso = MeterDefaults.isoValues[1],
-            selectedAperture = MeterDefaults.apertureValues[2],
-            selectedShutterSeconds = MeterDefaults.shutterValues[5],
+            meteringMode = initialSettings.meteringMode,
+            selectedIso = initialSettings.selectedIso,
+            exposureMode = initialSettings.exposureMode,
+            selectedAperture = initialSettings.selectedAperture,
+            selectedShutterSeconds = initialSettings.selectedShutterSeconds,
+            compensationEv = initialSettings.compensationEv,
+            isAeLocked = initialSettings.isAeLocked,
+            apertureOptions = (MeterDefaults.apertureValues + initialSettings.customApertures).distinct().sorted(),
+            shutterOptions = (MeterDefaults.shutterValues + initialSettings.customShutters).distinct().sorted(),
         )
     )
     val uiState: StateFlow<MeterUiState> = _uiState.asStateFlow()
@@ -133,12 +153,14 @@ class MeterViewModel(
         _uiState.update { current ->
             buildState(current.copy(exposureMode = mode), activeBaseEv100())
         }
+        notifySettingsChanged()
     }
 
     fun setMeteringMode(mode: MeteringMode) {
         _uiState.update { current ->
             buildState(current.copy(meteringMode = mode), activeBaseEv100())
         }
+        notifySettingsChanged()
     }
 
     fun setMeteringPoint(point: MeteringPoint) {
@@ -205,18 +227,21 @@ class MeterViewModel(
         _uiState.update { current ->
             buildState(current.copy(selectedIso = iso), activeBaseEv100())
         }
+        notifySettingsChanged()
     }
 
     fun setAperture(aperture: Double) {
         _uiState.update { current ->
             buildState(current.copy(selectedAperture = aperture), activeBaseEv100())
         }
+        notifySettingsChanged()
     }
 
     fun setShutterSeconds(shutterSeconds: Double) {
         _uiState.update { current ->
             buildState(current.copy(selectedShutterSeconds = shutterSeconds), activeBaseEv100())
         }
+        notifySettingsChanged()
     }
 
     fun addApertureOption(aperture: Double) {
@@ -235,6 +260,7 @@ class MeterViewModel(
                 activeBaseEv100(),
             )
         }
+        notifySettingsChanged()
     }
 
     fun removeApertureOption(aperture: Double) {
@@ -262,6 +288,7 @@ class MeterViewModel(
                 activeBaseEv100(),
             )
         }
+        notifySettingsChanged()
     }
 
     fun addShutterOption(shutterSeconds: Double) {
@@ -280,6 +307,7 @@ class MeterViewModel(
                 activeBaseEv100(),
             )
         }
+        notifySettingsChanged()
     }
 
     fun removeShutterOption(shutterSeconds: Double) {
@@ -307,6 +335,7 @@ class MeterViewModel(
                 activeBaseEv100(),
             )
         }
+        notifySettingsChanged()
     }
 
     fun setCompensation(value: Float) {
@@ -314,6 +343,7 @@ class MeterViewModel(
         _uiState.update { current ->
             buildState(current.copy(compensationEv = snappedValue), activeBaseEv100())
         }
+        notifySettingsChanged()
     }
 
     fun setCalibrationOffset(value: Float) {
@@ -334,6 +364,7 @@ class MeterViewModel(
                 buildState(current.copy(isAeLocked = true), currentBaseEv100)
             }
         }
+        notifySettingsChanged()
     }
 
     fun onCameraError(message: String) {
@@ -342,6 +373,27 @@ class MeterViewModel(
                 cameraError = message,
             )
         }
+    }
+
+    private fun notifySettingsChanged() {
+        val state = _uiState.value
+        onSettingsChanged?.invoke(
+            PersistedMeterSettings(
+                meteringMode = state.meteringMode,
+                selectedIso = state.selectedIso,
+                exposureMode = state.exposureMode,
+                selectedAperture = state.selectedAperture,
+                selectedShutterSeconds = state.selectedShutterSeconds,
+                compensationEv = state.compensationEv,
+                isAeLocked = state.isAeLocked,
+                customApertures = state.apertureOptions.filter { aperture ->
+                    MeterDefaults.apertureValues.none { valuesEqual(it, aperture) }
+                },
+                customShutters = state.shutterOptions.filter { shutter ->
+                    MeterDefaults.shutterValues.none { valuesEqual(it, shutter) }
+                },
+            )
+        )
     }
 
     private fun buildState(
