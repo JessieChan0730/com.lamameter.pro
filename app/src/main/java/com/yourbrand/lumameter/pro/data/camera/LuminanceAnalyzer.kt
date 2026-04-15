@@ -2,6 +2,7 @@ package com.yourbrand.lumameter.pro.data.camera
 
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
+import com.yourbrand.lumameter.pro.domain.exposure.FrameExposureMetadata
 import com.yourbrand.lumameter.pro.domain.exposure.LuminanceReading
 import com.yourbrand.lumameter.pro.domain.exposure.MeteringMode
 import com.yourbrand.lumameter.pro.domain.exposure.MeteringPoint
@@ -18,6 +19,7 @@ class LuminanceAnalyzer(
     private val meteringModeProvider: () -> MeteringMode,
     private val meteringPointProvider: () -> MeteringPoint,
     private val viewfinderAspectRatioProvider: () -> ViewfinderAspectRatio,
+    private val metadataProvider: () -> FrameExposureMetadata? = { null },
     private val onReadingAvailable: (LuminanceReading) -> Unit,
     private val minIntervalMs: Long = DEFAULT_MIN_INTERVAL_MS,
 ) : ImageAnalysis.Analyzer {
@@ -127,6 +129,7 @@ class LuminanceAnalyzer(
                     rotationDegrees = image.imageInfo.rotationDegrees,
                     meteringMode = meteringMode,
                     meteringPoint = mappedPoint,
+                    metadata = metadataProvider(),
                     histogram = histogram,
                 )
             )
