@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import java.util.UUID
 import kotlin.math.abs
+import kotlin.math.ln
 import kotlin.math.roundToInt
 
 private const val DEFAULT_ZOOM_RATIO = 1f
@@ -24,6 +25,7 @@ private val ZOOM_PRESET_RATIOS = listOf(0.5f, 1f, 2f, 4f, 8f)
 
 object MeterDefaults {
     val isoValues = listOf(50, 100, 200, 400, 800, 1600, 3200, 6400)
+    val ndFilterValues = listOf(1, 2, 4, 8, 16, 32, 64, 128, 256, 400, 512, 1000, 2000, 4000, 8000, 10000)
     val apertureValues = listOf(1.4, 2.0, 2.8, 4.0, 5.6, 8.0, 11.0, 16.0)
     val shutterValues = listOf(
         1.0 / 4000.0,
@@ -58,6 +60,7 @@ data class PersistedMeterSettings(
     val calibrationOffsetEv: Double = 0.0,
     val calibrationPresets: List<CalibrationPreset> = emptyList(),
     val activeCalibrationPresetId: String? = null,
+    val selectedNdFilter: Int = 1,
 )
 
 enum class MeterStatus {
@@ -82,9 +85,11 @@ data class MeterUiState(
     val isLiveMeteringEnabled: Boolean = true,
     val isManualMeterPending: Boolean = false,
     val isoOptions: List<Int> = MeterDefaults.isoValues,
+    val ndFilterOptions: List<Int> = MeterDefaults.ndFilterValues,
     val apertureOptions: List<Double> = MeterDefaults.apertureValues,
     val shutterOptions: List<Double> = MeterDefaults.shutterValues,
     val selectedIso: Int = 100,
+    val selectedNdFilter: Int = 1,
     val selectedAperture: Double = 2.8,
     val selectedShutterSeconds: Double = 1.0 / 125.0,
     val compensationEv: Double = 0.0,
@@ -112,6 +117,7 @@ class MeterViewModel(
         MeterUiState(
             meteringMode = initialSettings.meteringMode,
             selectedIso = initialSettings.selectedIso,
+            selectedNdFilter = initialSettings.selectedNdFilter,
             exposureMode = initialSettings.exposureMode,
             selectedAperture = initialSettings.selectedAperture,
             selectedShutterSeconds = initialSettings.selectedShutterSeconds,
@@ -236,6 +242,13 @@ class MeterViewModel(
     fun setIso(iso: Int) {
         _uiState.update { current ->
             buildState(current.copy(selectedIso = iso), activeBaseEv100())
+        }
+        notifySettingsChanged()
+    }
+
+    fun setNdFilter(factor: Int) {
+        _uiState.update { current ->
+            buildState(current.copy(selectedNdFilter = factor), activeBaseEv100())
         }
         notifySettingsChanged()
     }
@@ -456,6 +469,7 @@ class MeterViewModel(
                 calibrationOffsetEv = state.calibrationOffsetEv,
                 calibrationPresets = state.calibrationPresets,
                 activeCalibrationPresetId = state.activeCalibrationPresetId,
+                selectedNdFilter = state.selectedNdFilter,
             )
         )
     }
@@ -470,7 +484,8 @@ class MeterViewModel(
             baseEv100
         }
 
-        val sceneEv100 = (resolvedBaseEv100 ?: 0.0) + baseState.calibrationOffsetEv
+        val sceneEv100 = (resolvedBaseEv100 ?: 0.0) + baseState.calibrationOffsetEv -
+            ln(baseState.selectedNdFilter.toDouble()) / ln(2.0)
         val exposureResult = exposureCalculator.calculateFromEv100(
             sceneEv100 = sceneEv100,
             iso = baseState.selectedIso,
