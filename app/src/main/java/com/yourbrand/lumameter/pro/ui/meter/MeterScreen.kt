@@ -63,6 +63,7 @@ import androidx.compose.material.icons.rounded.GridOn
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.LockOpen
 import androidx.compose.material.icons.rounded.PhotoCamera
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Straighten
 import androidx.compose.material.icons.rounded.SwapHoriz
@@ -120,6 +121,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.ViewModelProvider
 import com.yourbrand.lumameter.pro.R
+import com.yourbrand.lumameter.pro.domain.exposure.CalibrationPreset
 import com.yourbrand.lumameter.pro.domain.exposure.ExposureMode
 import com.yourbrand.lumameter.pro.domain.exposure.LuminanceReading
 import com.yourbrand.lumameter.pro.domain.exposure.MeteringMode
@@ -144,13 +146,14 @@ private enum class MeterPage {
     SETTINGS,
     APERTURE_LIBRARY,
     SHUTTER_LIBRARY,
+    CALIBRATION,
 }
 
 private enum class MeterSheet {
     EXPOSURE_MODE,
-    CALIBRATION,
     ADD_APERTURE,
     ADD_SHUTTER,
+    ADD_CALIBRATION_PRESET,
 }
 
 private enum class ZoomControlMode {
@@ -242,11 +245,6 @@ fun MeterRoute(
                     },
                 )
 
-                MeterSheet.CALIBRATION -> CalibrationSheet(
-                    uiState = uiState,
-                    onCalibrationChanged = viewModel::setCalibrationOffset,
-                )
-
                 MeterSheet.ADD_APERTURE -> ValueInputSheet(
                     title = stringResource(R.string.add_aperture_value),
                     label = stringResource(R.string.aperture_value_input),
@@ -283,6 +281,14 @@ fun MeterRoute(
                         activeSheet = null
                     },
                     onDismiss = { activeSheet = null },
+                )
+
+                MeterSheet.ADD_CALIBRATION_PRESET -> AddPresetSheet(
+                    currentOffset = uiState.calibrationOffsetEv,
+                    onSave = { name, notes ->
+                        viewModel.addCalibrationPreset(name, notes)
+                        activeSheet = null
+                    },
                 )
             }
         }
@@ -321,7 +327,7 @@ fun MeterRoute(
                 viewfinderAspectRatio = viewfinderAspectRatio,
                 onPreviewTapped = viewModel::requestManualMetering,
                 onOpenModeSheet = { activeSheet = MeterSheet.EXPOSURE_MODE },
-                onOpenCalibration = { activeSheet = MeterSheet.CALIBRATION },
+                onOpenCalibration = { currentPage = MeterPage.CALIBRATION },
                 onOpenApertureLibrary = {
                     viewModel.setExposureMode(ExposureMode.APERTURE_PRIORITY)
                     currentPage = MeterPage.APERTURE_LIBRARY
@@ -387,6 +393,15 @@ fun MeterRoute(
                     MeterDefaults.shutterValues.none { valuesEqual(it, candidate) }
                 },
                 valueFormatter = ::formatShutter,
+            )
+
+            MeterPage.CALIBRATION -> CalibrationPage(
+                uiState = uiState,
+                onBack = { currentPage = MeterPage.MAIN },
+                onCalibrationChanged = viewModel::setCalibrationOffset,
+                onSelectPreset = viewModel::selectCalibrationPreset,
+                onDeletePreset = viewModel::deleteCalibrationPreset,
+                onAddPreset = { activeSheet = MeterSheet.ADD_CALIBRATION_PRESET },
             )
         }
     }
@@ -2011,11 +2026,305 @@ private fun ExposureModeSheet(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun CalibrationSheet(
+private fun CalibrationPage(
     uiState: MeterUiState,
+    onBack: () -> Unit,
     onCalibrationChanged: (Float) -> Unit,
+    onSelectPreset: (String) -> Unit,
+    onDeletePreset: (String) -> Unit,
+    onAddPreset: () -> Unit,
 ) {
+    val sliderColors = SliderDefaults.colors(
+        thumbColor = MaterialTheme.colorScheme.primary,
+        activeTrackColor = MaterialTheme.colorScheme.primary,
+        inactiveTrackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+    )
+    val calibrationScaleStops = remember {
+        (-5..5).map { v ->
+            SliderScaleStop(
+                value = v.toFloat(),
+                label = if (v == 0) "0" else null,
+            )
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(
+                        MaterialTheme.colorScheme.background,
+                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                        MaterialTheme.colorScheme.background,
+                    ),
+                )
+            ),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .safeDrawingPadding()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            PageHeader(
+                title = stringResource(R.string.calibration_title),
+                onBack = onBack,
+            )
+
+            MeterPanel(
+                modifier = Modifier.weight(1f),
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 18.dp, vertical = 18.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    Text(
+                        text = stringResource(R.string.calibration_sheet_description),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = stringResource(
+                                R.string.calibration_offset,
+                                formatSignedEv(uiState.calibrationOffsetEv),
+                            ),
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        if (uiState.calibrationOffsetEv != 0.0) {
+                            TextButton(
+                                onClick = { onCalibrationChanged(0f) },
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Refresh,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(14.dp),
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = stringResource(R.string.calibration_reset),
+                                    maxLines = 1,
+                                )
+                            }
+                        }
+                    }
+
+                    Slider(
+                        value = uiState.calibrationOffsetEv.toFloat(),
+                        onValueChange = onCalibrationChanged,
+                        valueRange = -5f..5f,
+                        steps = 99,
+                        colors = sliderColors,
+                        track = { sliderState ->
+                            CompactSliderTrack(
+                                sliderState = sliderState,
+                                colors = sliderColors,
+                            )
+                        },
+                    )
+                    SliderScale(
+                        stops = calibrationScaleStops,
+                        valueRange = -5f..5f,
+                        tickHeight = 5.dp,
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Text(
+                            text = "-5",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            text = "+5",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(1.dp)
+                            .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.16f)),
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = stringResource(R.string.calibration_presets_section),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        if (uiState.calibrationPresets.isEmpty()) {
+                            item {
+                                Text(
+                                    text = stringResource(R.string.no_presets_hint),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                        items(
+                            items = uiState.calibrationPresets,
+                            key = { it.id },
+                        ) { preset ->
+                            PresetRow(
+                                preset = preset,
+                                selected = preset.id == uiState.activeCalibrationPresetId,
+                                onClick = { onSelectPreset(preset.id) },
+                                onDelete = { onDeletePreset(preset.id) },
+                            )
+                        }
+                    }
+
+                    Button(
+                        onClick = onAddPreset,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                        ),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Add,
+                            contentDescription = null,
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(stringResource(R.string.add_calibration_preset))
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PresetRow(
+    preset: CalibrationPreset,
+    selected: Boolean,
+    onClick: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = if (selected) {
+            MaterialTheme.colorScheme.primaryContainer
+        } else {
+            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.46f)
+        },
+        onClick = onClick,
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Text(
+                    text = preset.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (selected) {
+                        MaterialTheme.colorScheme.onPrimaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.onSurface
+                    },
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = stringResource(
+                        R.string.preset_offset_label,
+                        formatSignedEv(preset.offsetEv),
+                    ),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (selected) {
+                        MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.82f)
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                )
+                if (preset.notes.isNotBlank()) {
+                    Text(
+                        text = preset.notes,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (selected) {
+                            MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.68f)
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.78f)
+                        },
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (selected) {
+                    Text(
+                        text = stringResource(R.string.preset_active),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    )
+                }
+                IconButton(onClick = onDelete) {
+                    Icon(
+                        imageVector = Icons.Rounded.Close,
+                        contentDescription = stringResource(R.string.delete_preset),
+                        modifier = Modifier.size(18.dp),
+                        tint = if (selected) {
+                            MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.62f)
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.52f)
+                        },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AddPresetSheet(
+    currentOffset: Double,
+    onSave: (name: String, notes: String) -> Unit,
+) {
+    var name by rememberSaveable { mutableStateOf("") }
+    var notes by rememberSaveable { mutableStateOf("") }
+    val canSave = name.isNotBlank()
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -2023,28 +2332,51 @@ private fun CalibrationSheet(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Text(
-            text = stringResource(R.string.calibration_title),
+            text = stringResource(R.string.add_calibration_preset),
             style = MaterialTheme.typography.titleLarge,
         )
         Text(
-            text = stringResource(R.string.calibration_sheet_description),
+            text = stringResource(
+                R.string.preset_offset_label,
+                formatSignedEv(currentOffset),
+            ),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Text(
-            text = stringResource(
-                R.string.calibration_offset,
-                formatSignedEv(uiState.calibrationOffsetEv),
-            ),
-            style = MaterialTheme.typography.titleMedium,
+        OutlinedTextField(
+            value = name,
+            onValueChange = { name = it },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text(stringResource(R.string.preset_name_input)) },
+            placeholder = { Text(stringResource(R.string.preset_name_hint)) },
+            supportingText = {
+                Text(
+                    if (name.isBlank() && name.isNotEmpty()) {
+                        stringResource(R.string.preset_name_required)
+                    } else {
+                        stringResource(R.string.preset_name_hint)
+                    }
+                )
+            },
+            isError = name.isNotEmpty() && name.isBlank(),
+            singleLine = true,
         )
-        Slider(
-            value = uiState.calibrationOffsetEv.toFloat(),
-            onValueChange = onCalibrationChanged,
-            valueRange = -2f..2f,
-            steps = 39,
+        OutlinedTextField(
+            value = notes,
+            onValueChange = { notes = it },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text(stringResource(R.string.preset_notes_input)) },
+            placeholder = { Text(stringResource(R.string.preset_notes_hint)) },
+            singleLine = true,
         )
-        Spacer(modifier = Modifier.height(12.dp))
+        Button(
+            modifier = Modifier.fillMaxWidth(),
+            onClick = { onSave(name, notes) },
+            enabled = canSave,
+        ) {
+            Text(stringResource(R.string.save))
+        }
+        Spacer(modifier = Modifier.height(8.dp))
     }
 }
 
