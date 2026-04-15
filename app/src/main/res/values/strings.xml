@@ -22,6 +22,9 @@
     <string name="label_iso">ISO</string>
     <string name="iso_value">ISO %1$d</string>
     <string name="iso_inline_value">ISO %1$d</string>
+    <string name="label_nd_filter">ND Filter</string>
+    <string name="nd_filter_none">None</string>
+    <string name="nd_filter_value">ND%1$d</string>
     <string name="enable_ae_lock">Enable AE Lock</string>
     <string name="disable_ae_lock">Disable AE Lock</string>
     <string name="controls">Controls</string>

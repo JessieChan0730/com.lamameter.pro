@@ -319,6 +319,7 @@ fun MeterRoute(
                 onZoomCapabilityResolved = viewModel::updateZoomCapability,
                 onZoomRatioChanged = viewModel::setZoomRatio,
                 onIsoSelected = viewModel::setIso,
+                onNdFilterSelected = viewModel::setNdFilter,
                 onCompensationChanged = viewModel::setCompensation,
                 onAeLockToggled = viewModel::toggleAeLock,
                 showGuideGrid = guideGridEnabled,
@@ -419,6 +420,7 @@ private fun MeterMainPage(
     onZoomCapabilityResolved: (Float, Float) -> Unit,
     onZoomRatioChanged: (Float) -> Unit,
     onIsoSelected: (Int) -> Unit,
+    onNdFilterSelected: (Int) -> Unit,
     onCompensationChanged: (Float) -> Unit,
     onAeLockToggled: () -> Unit,
     showGuideGrid: Boolean,
@@ -509,6 +511,11 @@ private fun MeterMainPage(
                                 values = uiState.isoOptions,
                                 selectedValue = uiState.selectedIso,
                                 onIsoSelected = onIsoSelected,
+                            )
+                            NdFilterSelector(
+                                values = uiState.ndFilterOptions,
+                                selectedValue = uiState.selectedNdFilter,
+                                onNdFilterSelected = onNdFilterSelected,
                             )
                         }
                     }
@@ -1438,6 +1445,131 @@ private fun IsoSelector(
                         ) {
                             Text(
                                 text = iso.toString(),
+                                modifier = Modifier.padding(horizontal = 16.dp),
+                                style = MaterialTheme.typography.labelLarge.copy(
+                                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                                ),
+                                color = contentColor,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun NdFilterSelector(
+    values: List<Int>,
+    selectedValue: Int,
+    onNdFilterSelected: (Int) -> Unit,
+) {
+    val chipBounds = remember(values) { mutableStateMapOf<Int, SelectorItemBounds>() }
+    val density = LocalDensity.current
+    val scrollState = rememberScrollState()
+    val selectedBounds = chipBounds[selectedValue]
+    val indicatorOffsetPx by animateFloatAsState(
+        targetValue = selectedBounds?.offsetPx ?: 0f,
+        animationSpec = tween(
+            durationMillis = 180,
+            easing = FastOutSlowInEasing,
+        ),
+        label = "nd_selector_indicator_offset_px",
+    )
+    val indicatorWidthPx by animateFloatAsState(
+        targetValue = selectedBounds?.widthPx?.toFloat() ?: 0f,
+        animationSpec = tween(
+            durationMillis = 180,
+            easing = FastOutSlowInEasing,
+        ),
+        label = "nd_selector_indicator_width_px",
+    )
+    val indicatorWidth = with(density) { indicatorWidthPx.toDp() }
+
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = stringResource(R.string.label_nd_filter),
+                style = MaterialTheme.typography.titleMedium,
+            )
+            Text(
+                text = if (selectedValue <= 1) {
+                    stringResource(R.string.nd_filter_none)
+                } else {
+                    stringResource(R.string.nd_filter_value, selectedValue)
+                },
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary,
+            )
+        }
+        Surface(
+            shape = RoundedCornerShape(14.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.52f),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(scrollState)
+                    .padding(horizontal = 8.dp, vertical = 8.dp),
+            ) {
+                if (selectedBounds != null && indicatorWidthPx > 0f) {
+                    Box(
+                        modifier = Modifier
+                            .graphicsLayer { translationX = indicatorOffsetPx }
+                            .width(indicatorWidth)
+                            .height(40.dp),
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(MaterialTheme.colorScheme.primary),
+                        )
+                    }
+                }
+
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    values.forEach { factor ->
+                        val selected = selectedValue == factor
+                        val contentColor by animateColorAsState(
+                            targetValue = if (selected) {
+                                MaterialTheme.colorScheme.onPrimary
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                            animationSpec = tween(durationMillis = 180),
+                            label = "nd_selector_content",
+                        )
+
+                        Box(
+                            modifier = Modifier
+                                .height(40.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .clickable { onNdFilterSelected(factor) }
+                                .onGloballyPositioned { coordinates ->
+                                    val nextBounds = SelectorItemBounds(
+                                        offsetPx = coordinates.positionInParent().x,
+                                        widthPx = coordinates.size.width,
+                                    )
+                                    if (chipBounds[factor] != nextBounds) {
+                                        chipBounds[factor] = nextBounds
+                                    }
+                                },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                text = if (factor <= 1) {
+                                    stringResource(R.string.nd_filter_none)
+                                } else {
+                                    stringResource(R.string.nd_filter_value, factor)
+                                },
                                 modifier = Modifier.padding(horizontal = 16.dp),
                                 style = MaterialTheme.typography.labelLarge.copy(
                                     fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,

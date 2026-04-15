@@ -139,6 +139,10 @@ class MainActivity : ComponentActivity() {
                         KEY_ACTIVE_CALIBRATION_PRESET,
                         null,
                     ),
+                    selectedNdFilter = preferences.getInt(
+                        KEY_SELECTED_ND_FILTER,
+                        1,
+                    ),
                 )
             }
 
@@ -171,6 +175,7 @@ class MainActivity : ComponentActivity() {
                             .putFloat(KEY_CALIBRATION_OFFSET, settings.calibrationOffsetEv.toFloat())
                             .putString(KEY_CALIBRATION_PRESETS, serializeCalibrationPresets(settings.calibrationPresets))
                             .putString(KEY_ACTIVE_CALIBRATION_PRESET, settings.activeCalibrationPresetId)
+                            .putInt(KEY_SELECTED_ND_FILTER, settings.selectedNdFilter)
                             .apply()
                     },
                 )
@@ -198,6 +203,7 @@ class MainActivity : ComponentActivity() {
         const val KEY_CALIBRATION_OFFSET = "calibration_offset"
         const val KEY_CALIBRATION_PRESETS = "calibration_presets"
         const val KEY_ACTIVE_CALIBRATION_PRESET = "active_calibration_preset"
+        const val KEY_SELECTED_ND_FILTER = "selected_nd_filter"
 
         fun parseDoubleList(raw: String?): List<Double> {
             if (raw.isNullOrBlank()) return emptyList()

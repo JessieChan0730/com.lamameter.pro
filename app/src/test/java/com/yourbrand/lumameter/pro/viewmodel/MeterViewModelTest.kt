@@ -409,6 +409,64 @@ class MeterViewModelTest {
         assertEquals(-3.5, viewModel.uiState.value.calibrationOffsetEv, 0.0001)
     }
 
+    @Test
+    fun `nd filter defaults to none`() {
+        val viewModel = MeterViewModel()
+
+        assertEquals(1, viewModel.uiState.value.selectedNdFilter)
+    }
+
+    @Test
+    fun `nd filter ND8 reduces scene ev by 3 stops`() {
+        val viewModel = MeterViewModel(exposureCalculator = calculator)
+
+        viewModel.onFrameAnalyzed(sampleReading(meteredLuma = 100.0))
+        val baseEv = viewModel.uiState.value.exposureResult.sceneEv100
+
+        viewModel.setNdFilter(8)
+
+        val ndEv = viewModel.uiState.value.exposureResult.sceneEv100
+        assertEquals(baseEv - 3.0, ndEv, 0.0001)
+    }
+
+    @Test
+    fun `nd filter persists through initial settings`() {
+        val viewModel = MeterViewModel(
+            initialSettings = PersistedMeterSettings(
+                selectedNdFilter = 64,
+            ),
+        )
+
+        assertEquals(64, viewModel.uiState.value.selectedNdFilter)
+    }
+
+    @Test
+    fun `nd filter combined with calibration offset`() {
+        val viewModel = MeterViewModel(exposureCalculator = calculator)
+
+        viewModel.onFrameAnalyzed(sampleReading(meteredLuma = 100.0))
+        val baseEv = viewModel.uiState.value.exposureResult.sceneEv100
+
+        viewModel.setCalibrationOffset(1f)
+        viewModel.setNdFilter(4)
+
+        val state = viewModel.uiState.value
+        // calibration adds +1.0, ND4 subtracts -2.0, net = -1.0
+        assertEquals(baseEv - 1.0, state.exposureResult.sceneEv100, 0.0001)
+    }
+
+    @Test
+    fun `nd filter notifies settings changed`() {
+        var lastSettings: PersistedMeterSettings? = null
+        val viewModel = MeterViewModel(
+            onSettingsChanged = { lastSettings = it },
+        )
+
+        viewModel.setNdFilter(16)
+
+        assertEquals(16, lastSettings?.selectedNdFilter)
+    }
+
     private fun sampleReading(meteredLuma: Double): LuminanceReading {
         return LuminanceReading(
             meteredLuma = meteredLuma,
