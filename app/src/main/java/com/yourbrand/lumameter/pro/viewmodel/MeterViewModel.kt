@@ -105,7 +105,7 @@ class MeterViewModel(
             return
         }
 
-        val rawBaseEv100 = exposureCalculator.lumaToEv100(reading.meteredLuma)
+        val rawBaseEv100 = exposureCalculator.lumaToEv100(reading.meteredLuma, reading.metadata)
 
         _uiState.update { current ->
             val nextState = current.copy(

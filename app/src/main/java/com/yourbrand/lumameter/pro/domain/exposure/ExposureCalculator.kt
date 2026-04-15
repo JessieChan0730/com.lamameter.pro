@@ -13,7 +13,16 @@ class ExposureCalculator(
     private val maxAperture: Double = 32.0,
 ) {
 
-    fun lumaToEv100(luma: Double): Double {
+    fun lumaToEv100(luma: Double, metadata: FrameExposureMetadata?): Double {
+        if (metadata != null && metadata.exposureTimeNs > 0 && metadata.sensitivity > 0 && metadata.aperture > 0f) {
+            val exposureTimeSec = metadata.exposureTimeNs / 1_000_000_000.0
+            val cameraEv = log2(metadata.aperture.toDouble().pow(2.0) / exposureTimeSec)
+            val isoCorrection = log2(metadata.sensitivity / 100.0)
+            val normalizedLuma = (luma / 255.0).coerceIn(0.001, 1.0)
+            val linearLuma = normalizedLuma.pow(2.2)
+            val brightnessCorrection = log2(linearLuma / 0.18)
+            return (cameraEv - isoCorrection + brightnessCorrection).coerceIn(minEv100, maxEv100)
+        }
         val normalizedLuma = (luma / 255.0).coerceIn(0.0, 1.0)
         val perceptualBrightness = sqrt(normalizedLuma)
         return (minEv100 + (maxEv100 - minEv100) * perceptualBrightness)

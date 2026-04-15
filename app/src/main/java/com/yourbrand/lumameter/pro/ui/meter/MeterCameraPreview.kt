@@ -1,10 +1,15 @@
 package com.yourbrand.lumameter.pro.ui.meter
 
+import android.hardware.camera2.CameraCaptureSession
+import android.hardware.camera2.CaptureRequest
+import android.hardware.camera2.CaptureResult
+import android.hardware.camera2.TotalCaptureResult
 import android.content.Context
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import androidx.camera.camera2.interop.Camera2Interop
 import androidx.camera.core.AspectRatio
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
@@ -41,12 +46,14 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.yourbrand.lumameter.pro.R
 import com.yourbrand.lumameter.pro.data.camera.LuminanceAnalyzer
+import com.yourbrand.lumameter.pro.domain.exposure.FrameExposureMetadata
 import com.yourbrand.lumameter.pro.domain.exposure.LuminanceReading
 import com.yourbrand.lumameter.pro.domain.exposure.MeteringMode
 import com.yourbrand.lumameter.pro.domain.exposure.MeteringPoint
 import com.yourbrand.lumameter.pro.domain.exposure.ViewfinderAspectRatio
 import java.util.concurrent.CancellationException
 import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicReference
 import kotlin.math.abs
 
 @Composable
@@ -91,6 +98,7 @@ fun MeterCameraPreview(
 
     DisposableEffect(lifecycleOwner, previewView) {
         val analyzerExecutor = Executors.newSingleThreadExecutor()
+        val latestMetadata = AtomicReference<FrameExposureMetadata?>(null)
         var cameraProvider: ProcessCameraProvider? = null
         val providerFuture = ProcessCameraProvider.getInstance(context)
 
@@ -104,10 +112,35 @@ fun MeterCameraPreview(
                     .build()
                     .also { it.setSurfaceProvider(previewView.surfaceProvider) }
 
-                val analysis = ImageAnalysis.Builder()
+                val analysisBuilder = ImageAnalysis.Builder()
                     .setTargetAspectRatio(AspectRatio.RATIO_4_3)
                     .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                    .build()
+
+                @Suppress("RestrictedApi")
+                @androidx.camera.camera2.interop.ExperimentalCamera2Interop
+                Camera2Interop.Extender(analysisBuilder)
+                    .setSessionCaptureCallback(object : CameraCaptureSession.CaptureCallback() {
+                        override fun onCaptureCompleted(
+                            session: CameraCaptureSession,
+                            request: CaptureRequest,
+                            result: TotalCaptureResult,
+                        ) {
+                            val exposureTimeNs = result.get(CaptureResult.SENSOR_EXPOSURE_TIME)
+                            val sensitivity = result.get(CaptureResult.SENSOR_SENSITIVITY)
+                            val aperture = result.get(CaptureResult.LENS_APERTURE)
+                            if (exposureTimeNs != null && sensitivity != null && aperture != null) {
+                                latestMetadata.set(
+                                    FrameExposureMetadata(
+                                        exposureTimeNs = exposureTimeNs,
+                                        sensitivity = sensitivity,
+                                        aperture = aperture,
+                                    )
+                                )
+                            }
+                        }
+                    })
+
+                val analysis = analysisBuilder.build()
 
                 analysis.setAnalyzer(
                     analyzerExecutor,
@@ -115,6 +148,7 @@ fun MeterCameraPreview(
                         meteringModeProvider = { currentMeteringMode },
                         meteringPointProvider = { currentMeteringPoint },
                         viewfinderAspectRatioProvider = { currentViewfinderAspectRatio },
+                        metadataProvider = { latestMetadata.get() },
                         onReadingAvailable = { reading -> currentReadingCallback(reading) },
                     )
                 )

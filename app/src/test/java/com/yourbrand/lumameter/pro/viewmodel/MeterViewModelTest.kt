@@ -25,7 +25,7 @@ class MeterViewModelTest {
         val state = viewModel.uiState.value
         assertEquals(reading, state.liveReading)
         assertEquals(MeterStatus.LIVE, state.meterStatus)
-        assertEquals(calculator.lumaToEv100(100.0), state.exposureResult.sceneEv100, 0.0001)
+        assertEquals(calculator.lumaToEv100(100.0, null), state.exposureResult.sceneEv100, 0.0001)
         assertNull(state.cameraError)
     }
 
@@ -39,8 +39,8 @@ class MeterViewModelTest {
         viewModel.onFrameAnalyzed(sampleReading(meteredLuma = secondLuma))
 
         val state = viewModel.uiState.value
-        val firstBaseEv100 = calculator.lumaToEv100(firstLuma)
-        val secondBaseEv100 = calculator.lumaToEv100(secondLuma)
+        val firstBaseEv100 = calculator.lumaToEv100(firstLuma, null)
+        val secondBaseEv100 = calculator.lumaToEv100(secondLuma, null)
         val expectedEv100 = firstBaseEv100 * 0.82 + secondBaseEv100 * 0.18
 
         assertEquals(expectedEv100, state.exposureResult.sceneEv100, 0.0001)
@@ -232,7 +232,7 @@ class MeterViewModelTest {
         viewModel.setCalibrationOffset(0.26f)
 
         val state = viewModel.uiState.value
-        val baseEv100 = calculator.lumaToEv100(100.0)
+        val baseEv100 = calculator.lumaToEv100(100.0, null)
         assertEquals(0.3, state.compensationEv, 0.0001)
         assertEquals(0.3, state.calibrationOffsetEv, 0.0001)
         assertEquals(baseEv100 + 0.3, state.exposureResult.sceneEv100, 0.0001)
