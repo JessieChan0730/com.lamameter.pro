@@ -40,6 +40,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
@@ -76,6 +77,8 @@ fun MeterCameraPreview(
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
+    val cameraStartErrorMsg = stringResource(R.string.failed_to_start_camera)
+    val zoomErrorMsg = stringResource(R.string.failed_to_adjust_zoom)
 
     val previewView = remember(context) {
         PreviewView(context).apply {
@@ -175,6 +178,7 @@ fun MeterCameraPreview(
                     camera = camera,
                     zoomRatio = safeZoomRatio,
                     context = context,
+                    zoomErrorMessage = zoomErrorMsg,
                     isLatestRequest = { zoomRequestToken == latestZoomRequestToken },
                     onZoomRatioApplied = currentZoomRatioCallback,
                     onZoomRequestFailed = {
@@ -186,7 +190,7 @@ fun MeterCameraPreview(
                 )
             }.onFailure { _ ->
                 boundCamera = null
-                currentErrorCallback(context.getString(R.string.failed_to_start_camera))
+                currentErrorCallback(cameraStartErrorMsg)
             }
         }
 
@@ -222,6 +226,7 @@ fun MeterCameraPreview(
             camera = camera,
             zoomRatio = safeZoomRatio,
             context = context,
+            zoomErrorMessage = zoomErrorMsg,
             isLatestRequest = { zoomRequestToken == latestZoomRequestToken },
             onZoomRatioApplied = currentZoomRatioCallback,
             onZoomRequestFailed = {
@@ -295,6 +300,7 @@ private fun applyZoomRatio(
     camera: Camera,
     zoomRatio: Float,
     context: Context,
+    zoomErrorMessage: String,
     isLatestRequest: () -> Boolean,
     onZoomRatioApplied: (Float) -> Unit,
     onZoomRequestFailed: () -> Unit,
@@ -315,7 +321,7 @@ private fun applyZoomRatio(
                     return@onFailure
                 }
                 onZoomRequestFailed()
-                onCameraError(context.getString(R.string.failed_to_adjust_zoom))
+                onCameraError(zoomErrorMessage)
             }
         },
         ContextCompat.getMainExecutor(context),
