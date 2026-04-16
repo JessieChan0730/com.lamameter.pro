@@ -70,8 +70,6 @@ import androidx.compose.material.icons.rounded.SwapHoriz
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -523,10 +521,16 @@ private fun MeterMainPage(
                 }
             } else {
                 item {
-                    PermissionEmptyState(
-                        modifier = Modifier.fillMaxWidth(),
-                        onRequestPermission = onRequestPermission,
-                    )
+                    MeterPanel(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .fillParentMaxHeight(fraction = 0.92f),
+                    ) {
+                        PermissionEmptyState(
+                            modifier = Modifier.fillMaxSize(),
+                            onRequestPermission = onRequestPermission,
+                        )
+                    }
                 }
             }
         }
@@ -2703,17 +2707,14 @@ private fun PermissionEmptyState(
     modifier: Modifier = Modifier,
     onRequestPermission: () -> Unit,
 ) {
-    Card(
+    Box(
         modifier = modifier,
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
-        ),
+        contentAlignment = Alignment.Center,
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 28.dp),
+                .padding(horizontal = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
