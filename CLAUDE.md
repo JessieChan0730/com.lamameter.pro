@@ -21,6 +21,12 @@ LumaMeter is an Android light meter app that uses CameraX camera-frame luminance
 # Lint
 ./gradlew lint
 
+# ktlint — check Kotlin code style
+./gradlew ktlintCheck
+
+# ktlint — auto-fix style violations
+./gradlew ktlintFormat
+
 # Restricted environment (keeps Gradle state in-repo)
 ./gradlew -g .gradle-home assembleDebug
 ```
@@ -67,6 +73,7 @@ Enforced by `.githooks/commit-msg` hook. Format: `<type>(optional-scope): <descr
 - User-facing strings go in `strings.xml`, not Kotlin source
 - Business logic stays out of Compose UI
 - Localization: `values/strings.xml` (English) and `values-zh/strings.xml` (Chinese) must stay in sync
+- Code style enforced by ktlint (`.editorconfig` configures rules); `pre-commit` hook blocks violations
 
 ## Testing
 

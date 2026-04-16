@@ -1,0 +1,38 @@
+#!/bin/sh
+
+# Pre-commit hook: run ktlint check on staged Kotlin files.
+# If any style violations are found, the commit is rejected.
+# Fix with: ./gradlew ktlintFormat (or .\gradlew.bat ktlintFormat on Windows)
+
+STAGED_KT=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(kt|kts)$')
+
+if [ -z "$STAGED_KT" ]; then
+  exit 0
+fi
+
+echo "Running ktlint check on staged Kotlin files..."
+
+if [ -f "./gradlew" ]; then
+  GRADLE_CMD="./gradlew"
+elif [ -f "./gradlew.bat" ]; then
+  GRADLE_CMD="./gradlew.bat"
+else
+  echo "Warning: Gradle wrapper not found, skipping ktlint check." >&2
+  exit 0
+fi
+
+$GRADLE_CMD ktlintCheck --daemon > /dev/null 2>&1
+
+if [ $? -ne 0 ]; then
+  cat >&2 <<'EOF'
+
+ktlint check failed. Please fix style violations before committing.
+
+  Auto-fix:   ./gradlew ktlintFormat
+  Then:       git add <fixed files>
+
+EOF
+  exit 1
+fi
+
+exit 0

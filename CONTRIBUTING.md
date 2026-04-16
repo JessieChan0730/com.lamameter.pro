@@ -88,6 +88,24 @@ The repository contains a single Android app module: `app/`.
 
 For localized features, keep `values/` and `values-zh/` consistent.
 
+### Code Style (ktlint)
+
+The project uses [ktlint](https://pinterest.github.io/ktlint/) via the ktlint-gradle plugin to enforce Kotlin code style.
+
+Check code style:
+
+```bash
+./gradlew ktlintCheck
+```
+
+Auto-fix violations:
+
+```bash
+./gradlew ktlintFormat
+```
+
+The `.editorconfig` at the project root configures ktlint rules. The `pre-commit` git hook will block commits that contain style violations.
+
 ## Testing Expectations
 
 Prefer tests for pure logic and state transitions.
@@ -109,6 +127,8 @@ When a change affects device behavior, CameraX flow, lifecycle handling, or perm
 This repository uses a `commit-msg` Git hook to validate the first line of each commit message.
 
 ### Install the Hook
+
+This also installs the `pre-commit` hook for ktlint checks.
 
 Windows:
 
