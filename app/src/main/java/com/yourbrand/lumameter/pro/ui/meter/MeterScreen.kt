@@ -32,6 +32,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -97,6 +98,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -952,14 +954,65 @@ private fun ZoomControlSection(
 }
 
 @Composable
+private fun OverflowAwareSingleLineRow(
+    modifier: Modifier = Modifier,
+    spacing: Dp,
+    content: @Composable RowScope.() -> Unit,
+) {
+    val scrollState = rememberScrollState()
+    var containerWidthPx by remember { mutableStateOf(0) }
+    var contentWidthPx by remember { mutableStateOf(0) }
+    val isOverflowing = containerWidthPx > 0 && contentWidthPx > containerWidthPx
+
+    LaunchedEffect(isOverflowing) {
+        if (!isOverflowing && scrollState.value != 0) {
+            scrollState.scrollTo(0)
+        }
+    }
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .clipToBounds()
+            .onGloballyPositioned { coordinates ->
+                val nextWidth = coordinates.size.width
+                if (containerWidthPx != nextWidth) {
+                    containerWidthPx = nextWidth
+                }
+            },
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(
+                    state = scrollState,
+                    enabled = isOverflowing,
+                ),
+            contentAlignment = if (isOverflowing) Alignment.CenterStart else Alignment.Center,
+        ) {
+            Row(
+                modifier = Modifier.onGloballyPositioned { coordinates ->
+                    val nextWidth = coordinates.size.width
+                    if (contentWidthPx != nextWidth) {
+                        contentWidthPx = nextWidth
+                    }
+                },
+                horizontalArrangement = Arrangement.spacedBy(spacing),
+                verticalAlignment = Alignment.CenterVertically,
+                content = content,
+            )
+        }
+    }
+}
+
+@Composable
 private fun ZoomPresetButtons(
     uiState: MeterUiState,
     onZoomRatioChanged: (Float) -> Unit,
     onRequestSliderMode: () -> Unit,
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+    OverflowAwareSingleLineRow(
+        spacing = 8.dp,
     ) {
         uiState.zoomPresets.forEach { preset ->
             MeterChoiceChip(
@@ -968,6 +1021,7 @@ private fun ZoomPresetButtons(
                     alpha = if (preset.enabled) 1f else 0.42f
                 },
                 selected = preset.selected,
+                selectedShadowElevation = 0.dp,
                 onClick = if (preset.enabled) {
                     {
                         if (preset.selected) {

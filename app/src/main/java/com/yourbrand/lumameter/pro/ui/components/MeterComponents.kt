@@ -18,6 +18,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 @Composable
@@ -45,6 +46,7 @@ fun MeterChoiceChip(
     label: String,
     modifier: Modifier = Modifier,
     selected: Boolean = false,
+    selectedShadowElevation: Dp = 4.dp,
     leadingIcon: ImageVector? = null,
     trailingIcon: ImageVector? = null,
     onClick: (() -> Unit)? = null,
@@ -73,7 +75,7 @@ fun MeterChoiceChip(
         label = "meter_choice_chip_tonal_elevation",
     )
     val shadowElevation by animateDpAsState(
-        targetValue = if (selected) 4.dp else 0.dp,
+        targetValue = if (selected) selectedShadowElevation else 0.dp,
         animationSpec = tween(durationMillis = 220),
         label = "meter_choice_chip_shadow_elevation",
     )
