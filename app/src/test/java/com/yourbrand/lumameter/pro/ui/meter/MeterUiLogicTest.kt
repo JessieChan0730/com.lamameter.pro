@@ -2,8 +2,10 @@ package com.yourbrand.lumameter.pro.ui.meter
 
 import com.yourbrand.lumameter.pro.domain.exposure.MeteringMode
 import com.yourbrand.lumameter.pro.domain.exposure.MeteringPoint
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class MeterUiLogicTest {
@@ -106,5 +108,30 @@ class MeterUiLogicTest {
         assertEquals("2s", formatShutter(2.0))
         assertEquals("4s", formatShutter(4.0))
         assertEquals("30s", formatShutter(30.0))
+    }
+
+    @Test
+    fun `pinned summary appears only after live status row has scrolled away`() {
+        assertFalse(
+            shouldShowPinnedSummary(
+                hasCameraPermission = false,
+                viewportTopPx = 100f,
+                statusRowBottomPx = 90f,
+            )
+        )
+        assertFalse(
+            shouldShowPinnedSummary(
+                hasCameraPermission = true,
+                viewportTopPx = 100f,
+                statusRowBottomPx = 101.5f,
+            )
+        )
+        assertTrue(
+            shouldShowPinnedSummary(
+                hasCameraPermission = true,
+                viewportTopPx = 100f,
+                statusRowBottomPx = 100.5f,
+            )
+        )
     }
 }
