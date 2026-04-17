@@ -503,10 +503,24 @@ class MeterViewModel(
                     }
                 }
             }
-            val resolvedActiveId = activeId?.takeIf { candidate -> nextPresets.any { it.id == candidate } }
-            val activeOffset = resolvedActiveId?.let { id ->
-                nextPresets.find { it.id == id }?.offsetEv
-            } ?: current.calibrationOffsetEv
+            val resolvedActiveId = when (strategy) {
+                CalibrationImportStrategy.REPLACE -> {
+                    activeId?.takeIf { candidate -> nextPresets.any { it.id == candidate } }
+                }
+                CalibrationImportStrategy.MERGE_KEEP_EXISTING -> {
+                    current.activeCalibrationPresetId?.takeIf { candidate ->
+                        nextPresets.any { it.id == candidate }
+                    }
+                }
+            }
+            val activeOffset = when (strategy) {
+                CalibrationImportStrategy.REPLACE -> {
+                    resolvedActiveId?.let { id ->
+                        nextPresets.find { it.id == id }?.offsetEv
+                    } ?: 0.0
+                }
+                CalibrationImportStrategy.MERGE_KEEP_EXISTING -> current.calibrationOffsetEv
+            }
             buildState(
                 current.copy(
                     calibrationPresets = nextPresets,

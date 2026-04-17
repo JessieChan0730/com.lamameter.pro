@@ -486,6 +486,26 @@ class MeterViewModelTest {
     }
 
     @Test
+    fun `import replace without active id clears selection and resets offset`() {
+        val viewModel = MeterViewModel()
+        viewModel.setCalibrationOffset(-1f)
+        viewModel.addCalibrationPreset("Current")
+        viewModel.setCalibrationOffset(1.5f)
+
+        val incoming = listOf(
+            com.yourbrand.lumameter.pro.domain.exposure.CalibrationPreset(
+                id = "x", name = "Imported", offsetEv = 0.7, notes = "",
+            ),
+        )
+        viewModel.importCalibrationPresets(incoming, activeId = null, strategy = CalibrationImportStrategy.REPLACE)
+
+        val state = viewModel.uiState.value
+        assertEquals(listOf("Imported"), state.calibrationPresets.map { it.name })
+        assertNull(state.activeCalibrationPresetId)
+        assertEquals(0.0, state.calibrationOffsetEv, 0.0001)
+    }
+
+    @Test
     fun `import merge skips duplicate names`() {
         val viewModel = MeterViewModel()
         viewModel.addCalibrationPreset("Canon R10")
@@ -502,6 +522,26 @@ class MeterViewModelTest {
 
         val names = viewModel.uiState.value.calibrationPresets.map { it.name }
         assertEquals(listOf("Canon R10", "Sony A7"), names)
+    }
+
+    @Test
+    fun `import merge preserves current selection and offset`() {
+        val viewModel = MeterViewModel()
+        viewModel.setCalibrationOffset(-1f)
+        viewModel.addCalibrationPreset("Current")
+        val currentId = viewModel.uiState.value.activeCalibrationPresetId
+
+        val incoming = listOf(
+            com.yourbrand.lumameter.pro.domain.exposure.CalibrationPreset(
+                id = "x", name = "Imported", offsetEv = 0.7, notes = "",
+            ),
+        )
+        viewModel.importCalibrationPresets(incoming, activeId = "x", strategy = CalibrationImportStrategy.MERGE_KEEP_EXISTING)
+
+        val state = viewModel.uiState.value
+        assertEquals(listOf("Current", "Imported"), state.calibrationPresets.map { it.name })
+        assertEquals(currentId, state.activeCalibrationPresetId)
+        assertEquals(-1.0, state.calibrationOffsetEv, 0.0001)
     }
 
     @Test
