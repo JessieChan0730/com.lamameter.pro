@@ -102,7 +102,7 @@ private fun MeterSnackbar(
 ) {
     val colors = when (status) {
         MeterSnackbarStatus.Success -> MeterSnackbarColors(
-            containerColor = Color.White,
+            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.98f),
             textColor = MaterialTheme.colorScheme.onSurface,
             iconTint = Color(0xFF2F8F4E),
             icon = Icons.Rounded.CheckCircle,
