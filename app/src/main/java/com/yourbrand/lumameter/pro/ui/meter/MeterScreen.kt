@@ -83,6 +83,7 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -2654,6 +2655,12 @@ private fun CalibrationPageHeader(
     exportEnabled: Boolean,
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
+    val menuItemColors = MenuDefaults.itemColors(
+        textColor = MaterialTheme.colorScheme.onSurface,
+        leadingIconColor = MaterialTheme.colorScheme.onSurface,
+        disabledTextColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.42f),
+        disabledLeadingIconColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.42f),
+    )
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -2689,11 +2696,12 @@ private fun CalibrationPageHeader(
             DropdownMenu(
                 expanded = menuExpanded,
                 onDismissRequest = { menuExpanded = false },
-                containerColor = Color.White,
+                containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.98f),
             ) {
                 DropdownMenuItem(
                     text = { Text(stringResource(R.string.calibration_export)) },
                     enabled = exportEnabled,
+                    colors = menuItemColors,
                     leadingIcon = {
                         Icon(
                             imageVector = Icons.Rounded.FileDownload,
@@ -2707,6 +2715,7 @@ private fun CalibrationPageHeader(
                 )
                 DropdownMenuItem(
                     text = { Text(stringResource(R.string.calibration_import)) },
+                    colors = menuItemColors,
                     leadingIcon = {
                         Icon(
                             imageVector = Icons.Rounded.FileUpload,
