@@ -7,6 +7,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -89,6 +90,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableStateMapOf
@@ -105,6 +107,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInParent
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
@@ -435,6 +438,18 @@ private fun MeterMainPage(
     onOpenShutterLibrary: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
+    var viewportTopPx by remember { mutableStateOf<Float?>(null) }
+    var statusRowBottomPx by remember { mutableStateOf<Float?>(null) }
+    val showPinnedSummary by remember(hasCameraPermission, viewportTopPx, statusRowBottomPx) {
+        derivedStateOf {
+            shouldShowPinnedSummary(
+                hasCameraPermission = hasCameraPermission,
+                viewportTopPx = viewportTopPx,
+                statusRowBottomPx = statusRowBottomPx,
+            )
+        }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -451,6 +466,9 @@ private fun MeterMainPage(
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
+                .onGloballyPositioned { coordinates ->
+                    viewportTopPx = coordinates.positionInWindow().y
+                }
                 .safeDrawingPadding(),
             contentPadding = PaddingValues(
                 start = 16.dp,
@@ -479,7 +497,13 @@ private fun MeterMainPage(
                                 .padding(horizontal = 18.dp, vertical = 18.dp),
                             verticalArrangement = Arrangement.spacedBy(16.dp),
                         ) {
-                            StatusRow(uiState = uiState)
+                            StatusRow(
+                                modifier = Modifier.onGloballyPositioned { coordinates ->
+                                    statusRowBottomPx =
+                                        coordinates.positionInWindow().y + coordinates.size.height
+                                },
+                                uiState = uiState,
+                            )
                             MeteringTabs(
                                 currentMode = uiState.meteringMode,
                                 onMeteringModeSelected = onMeteringModeSelected,
@@ -535,6 +559,24 @@ private fun MeterMainPage(
                     }
                 }
             }
+        }
+
+        AnimatedVisibility(
+            visible = showPinnedSummary,
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .safeDrawingPadding()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            enter = slideInVertically { height -> -height / 2 } +
+                fadeIn(animationSpec = tween(durationMillis = 180)),
+            exit = slideOutVertically { height -> -height / 2 } +
+                fadeOut(animationSpec = tween(durationMillis = 140)),
+        ) {
+            PinnedMeterSummaryBar(
+                modifier = Modifier.fillMaxWidth(),
+                uiState = uiState,
+            )
         }
     }
 }
@@ -601,10 +643,11 @@ private fun MainHeader(
 
 @Composable
 private fun StatusRow(
+    modifier: Modifier = Modifier,
     uiState: MeterUiState,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -624,6 +667,100 @@ private fun StatusRow(
                 MeterChoiceChip(label = "AVG ${formatLuma(reading.averageLuma)}")
             }
         }
+    }
+}
+
+@Composable
+private fun PinnedMeterSummaryBar(
+    uiState: MeterUiState,
+    modifier: Modifier = Modifier,
+) {
+    val reading = uiState.liveReading
+
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
+        tonalElevation = 6.dp,
+        shadowElevation = 8.dp,
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            PinnedSummaryBadge(text = exposureModeLabel(uiState.exposureMode))
+            PinnedSummaryBadge(
+                text = meteringModeLabel(uiState.meteringMode),
+                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+            )
+            PinnedSummaryMetric(
+                label = stringResource(R.string.live_ev_short),
+                value = formatEv(uiState.exposureResult.sceneEv100),
+            )
+            PinnedSummaryMetric(
+                label = "L",
+                value = reading?.let { formatLuma(it.meteredLuma) } ?: "--",
+            )
+            PinnedSummaryMetric(
+                label = "AVG",
+                value = reading?.let { formatLuma(it.averageLuma) } ?: "--",
+            )
+        }
+    }
+}
+
+@Composable
+private fun PinnedSummaryBadge(
+    text: String,
+    modifier: Modifier = Modifier,
+    containerColor: Color = MaterialTheme.colorScheme.primaryContainer,
+    contentColor: Color = MaterialTheme.colorScheme.onPrimaryContainer,
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(999.dp),
+        color = containerColor,
+    ) {
+        Text(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            text = text,
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.Medium,
+            color = contentColor,
+            maxLines = 1,
+        )
+    }
+}
+
+@Composable
+private fun PinnedSummaryMetric(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+        )
     }
 }
 
@@ -2815,6 +2952,17 @@ private fun Context.hasCameraPermission(): Boolean {
     ) == PackageManager.PERMISSION_GRANTED
 }
 
+internal fun shouldShowPinnedSummary(
+    hasCameraPermission: Boolean,
+    viewportTopPx: Float?,
+    statusRowBottomPx: Float?,
+): Boolean {
+    if (!hasCameraPermission || viewportTopPx == null || statusRowBottomPx == null) {
+        return false
+    }
+    return statusRowBottomPx <= viewportTopPx + PINNED_SUMMARY_VISIBILITY_EPSILON_PX
+}
+
 private fun formatEv(value: Double): String {
     return String.format(Locale.getDefault(), "%.1f", value)
 }
@@ -3013,3 +3161,4 @@ private fun valuesEqual(
 
 private const val MIN_SHUTTER_SECONDS = 1.0 / 8000.0
 private const val MAX_SHUTTER_SECONDS = 30.0
+private const val PINNED_SUMMARY_VISIBILITY_EPSILON_PX = 1f
