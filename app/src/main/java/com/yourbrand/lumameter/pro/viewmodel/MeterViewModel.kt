@@ -70,6 +70,11 @@ enum class MeterStatus {
     MANUAL,
 }
 
+enum class CalibrationImportStrategy {
+    REPLACE,
+    MERGE_KEEP_EXISTING,
+}
+
 data class ZoomPresetUiModel(
     val ratio: Float,
     val enabled: Boolean,
@@ -402,11 +407,16 @@ class MeterViewModel(
     fun deleteCalibrationPreset(id: String) {
         _uiState.update { current ->
             val nextPresets = current.calibrationPresets.filter { it.id != id }
-            val nextActiveId = if (current.activeCalibrationPresetId == id) null
-                else current.activeCalibrationPresetId
-            current.copy(
-                calibrationPresets = nextPresets,
-                activeCalibrationPresetId = nextActiveId,
+            val wasActive = current.activeCalibrationPresetId == id
+            val nextActiveId = if (wasActive) null else current.activeCalibrationPresetId
+            val nextOffset = if (wasActive) 0.0 else current.calibrationOffsetEv
+            buildState(
+                current.copy(
+                    calibrationPresets = nextPresets,
+                    activeCalibrationPresetId = nextActiveId,
+                    calibrationOffsetEv = nextOffset,
+                ),
+                activeBaseEv100(),
             )
         }
         notifySettingsChanged()
@@ -414,12 +424,94 @@ class MeterViewModel(
 
     fun selectCalibrationPreset(id: String) {
         _uiState.update { current ->
+            if (current.activeCalibrationPresetId == id) {
+                return@update buildState(
+                    current.copy(
+                        calibrationOffsetEv = 0.0,
+                        activeCalibrationPresetId = null,
+                    ),
+                    activeBaseEv100(),
+                )
+            }
             val preset = current.calibrationPresets.find { it.id == id }
                 ?: return@update current
             buildState(
                 current.copy(
                     calibrationOffsetEv = preset.offsetEv,
                     activeCalibrationPresetId = id,
+                ),
+                activeBaseEv100(),
+            )
+        }
+        notifySettingsChanged()
+    }
+
+    fun updateCalibrationPreset(
+        id: String,
+        name: String,
+        notes: String,
+        offsetEv: Double,
+    ) {
+        val snappedOffset = snapToStep(offsetEv, step = 0.1, min = -5.0, max = 5.0)
+        _uiState.update { current ->
+            val index = current.calibrationPresets.indexOfFirst { it.id == id }
+            if (index < 0) return@update current
+            val updated = current.calibrationPresets[index].copy(
+                name = name.trim(),
+                notes = notes.trim(),
+                offsetEv = snappedOffset,
+            )
+            val nextPresets = current.calibrationPresets.toMutableList().apply {
+                set(index, updated)
+            }
+            val isActive = current.activeCalibrationPresetId == id
+            buildState(
+                current.copy(
+                    calibrationPresets = nextPresets,
+                    calibrationOffsetEv = if (isActive) snappedOffset else current.calibrationOffsetEv,
+                ),
+                activeBaseEv100(),
+            )
+        }
+        notifySettingsChanged()
+    }
+
+    fun previewCalibrationOffset(value: Float) {
+        val snappedValue = snapToStep(value.toDouble(), step = 0.1, min = -5.0, max = 5.0)
+        _uiState.update { current ->
+            buildState(
+                current.copy(calibrationOffsetEv = snappedValue),
+                activeBaseEv100(),
+            )
+        }
+    }
+
+    fun importCalibrationPresets(
+        presets: List<CalibrationPreset>,
+        activeId: String?,
+        strategy: CalibrationImportStrategy = CalibrationImportStrategy.REPLACE,
+    ) {
+        _uiState.update { current ->
+            val nextPresets = when (strategy) {
+                CalibrationImportStrategy.REPLACE -> presets
+                CalibrationImportStrategy.MERGE_KEEP_EXISTING -> {
+                    val existingIds = current.calibrationPresets.map { it.id }.toSet()
+                    val existingNames = current.calibrationPresets.map { it.name.trim().lowercase() }.toSet()
+                    current.calibrationPresets + presets.filter { incoming ->
+                        incoming.id !in existingIds &&
+                            incoming.name.trim().lowercase() !in existingNames
+                    }
+                }
+            }
+            val resolvedActiveId = activeId?.takeIf { candidate -> nextPresets.any { it.id == candidate } }
+            val activeOffset = resolvedActiveId?.let { id ->
+                nextPresets.find { it.id == id }?.offsetEv
+            } ?: current.calibrationOffsetEv
+            buildState(
+                current.copy(
+                    calibrationPresets = nextPresets,
+                    activeCalibrationPresetId = resolvedActiveId,
+                    calibrationOffsetEv = activeOffset,
                 ),
                 activeBaseEv100(),
             )
