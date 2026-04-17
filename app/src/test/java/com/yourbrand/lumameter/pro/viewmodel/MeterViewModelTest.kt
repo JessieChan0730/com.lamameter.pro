@@ -370,6 +370,23 @@ class MeterViewModelTest {
     }
 
     @Test
+    fun `selecting active preset again clears selection and resets offset`() {
+        val viewModel = MeterViewModel()
+
+        viewModel.setCalibrationOffset(-2f)
+        viewModel.addCalibrationPreset("Canon R10")
+
+        val presetId = viewModel.uiState.value.calibrationPresets[0].id
+        assertEquals(presetId, viewModel.uiState.value.activeCalibrationPresetId)
+
+        viewModel.selectCalibrationPreset(presetId)
+
+        val state = viewModel.uiState.value
+        assertNull(state.activeCalibrationPresetId)
+        assertEquals(0.0, state.calibrationOffsetEv, 0.0001)
+    }
+
+    @Test
     fun `manual slider change clears active preset`() {
         val viewModel = MeterViewModel()
 
@@ -396,6 +413,95 @@ class MeterViewModelTest {
         val state = viewModel.uiState.value
         assertTrue(state.calibrationPresets.isEmpty())
         assertNull(state.activeCalibrationPresetId)
+        assertEquals(0.0, state.calibrationOffsetEv, 0.0001)
+    }
+
+    @Test
+    fun `updating active preset rewrites offset`() {
+        val viewModel = MeterViewModel()
+        viewModel.setCalibrationOffset(-1f)
+        viewModel.addCalibrationPreset("Canon R10", "daylight")
+        val id = viewModel.uiState.value.calibrationPresets[0].id
+
+        viewModel.updateCalibrationPreset(id, "Canon R10 II", "cloudy", 0.4)
+
+        val state = viewModel.uiState.value
+        assertEquals(1, state.calibrationPresets.size)
+        assertEquals("Canon R10 II", state.calibrationPresets[0].name)
+        assertEquals("cloudy", state.calibrationPresets[0].notes)
+        assertEquals(0.4, state.calibrationPresets[0].offsetEv, 0.0001)
+        assertEquals(0.4, state.calibrationOffsetEv, 0.0001)
+    }
+
+    @Test
+    fun `updating non-active preset does not change live offset`() {
+        val viewModel = MeterViewModel()
+        viewModel.addCalibrationPreset("A")
+        viewModel.addCalibrationPreset("B")
+        val firstId = viewModel.uiState.value.calibrationPresets[0].id
+        val activeId = viewModel.uiState.value.activeCalibrationPresetId
+        assertTrue(activeId != firstId)
+
+        viewModel.updateCalibrationPreset(firstId, "A+", "", 2.0)
+
+        val state = viewModel.uiState.value
+        assertEquals(2.0, state.calibrationPresets.first { it.id == firstId }.offsetEv, 0.0001)
+        assertEquals(0.0, state.calibrationOffsetEv, 0.0001)
+        assertEquals(activeId, state.activeCalibrationPresetId)
+    }
+
+    @Test
+    fun `preview offset does not persist or clear active preset`() {
+        val persisted = mutableListOf<PersistedMeterSettings>()
+        val viewModel = MeterViewModel(onSettingsChanged = { persisted.add(it) })
+        viewModel.setCalibrationOffset(0.5f)
+        viewModel.addCalibrationPreset("Canon")
+        val activeId = viewModel.uiState.value.activeCalibrationPresetId
+        val snapshotsBefore = persisted.size
+
+        viewModel.previewCalibrationOffset(-2.0f)
+
+        val state = viewModel.uiState.value
+        assertEquals(-2.0, state.calibrationOffsetEv, 0.0001)
+        assertEquals(activeId, state.activeCalibrationPresetId)
+        assertEquals(snapshotsBefore, persisted.size)
+    }
+
+    @Test
+    fun `import replace swaps presets wholesale`() {
+        val viewModel = MeterViewModel()
+        viewModel.addCalibrationPreset("Old")
+
+        val incoming = listOf(
+            com.yourbrand.lumameter.pro.domain.exposure.CalibrationPreset(
+                id = "x", name = "New", offsetEv = 0.7, notes = "",
+            ),
+        )
+        viewModel.importCalibrationPresets(incoming, activeId = "x", strategy = CalibrationImportStrategy.REPLACE)
+
+        val state = viewModel.uiState.value
+        assertEquals(listOf("New"), state.calibrationPresets.map { it.name })
+        assertEquals("x", state.activeCalibrationPresetId)
+        assertEquals(0.7, state.calibrationOffsetEv, 0.0001)
+    }
+
+    @Test
+    fun `import merge skips duplicate names`() {
+        val viewModel = MeterViewModel()
+        viewModel.addCalibrationPreset("Canon R10")
+
+        val incoming = listOf(
+            com.yourbrand.lumameter.pro.domain.exposure.CalibrationPreset(
+                id = "x", name = "canon r10", offsetEv = 0.3, notes = "",
+            ),
+            com.yourbrand.lumameter.pro.domain.exposure.CalibrationPreset(
+                id = "y", name = "Sony A7", offsetEv = -0.1, notes = "",
+            ),
+        )
+        viewModel.importCalibrationPresets(incoming, activeId = null, strategy = CalibrationImportStrategy.MERGE_KEEP_EXISTING)
+
+        val names = viewModel.uiState.value.calibrationPresets.map { it.name }
+        assertEquals(listOf("Canon R10", "Sony A7"), names)
     }
 
     @Test
