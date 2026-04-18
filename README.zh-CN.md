@@ -95,3 +95,7 @@ Windows：
 - [ ] **分区曝光**
 - [ ] **BUG 修复**
 - [ ] **其他功能**
+
+## 感谢支持
+
+[https://linux.do](https://linux.do)
