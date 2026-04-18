@@ -95,3 +95,7 @@ Windows:
 - [ ] **Zone system metering**
 - [ ] **Bug fixes**
 - [ ] **Other features**
+
+## Thanks for Your Support
+
+[https://linux.do](https://linux.do)
