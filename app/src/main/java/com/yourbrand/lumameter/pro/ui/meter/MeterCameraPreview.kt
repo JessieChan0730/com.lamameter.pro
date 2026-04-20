@@ -52,6 +52,7 @@ import com.yourbrand.lumameter.pro.domain.exposure.LuminanceReading
 import com.yourbrand.lumameter.pro.domain.exposure.MeteringMode
 import com.yourbrand.lumameter.pro.domain.exposure.MeteringPoint
 import com.yourbrand.lumameter.pro.domain.exposure.ViewfinderAspectRatio
+import com.yourbrand.lumameter.pro.domain.exposure.WhiteBalanceGains
 import java.util.concurrent.CancellationException
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicReference
@@ -66,6 +67,8 @@ fun MeterCameraPreview(
     viewfinderAspectRatio: ViewfinderAspectRatio,
     isAeLocked: Boolean,
     requestedZoomRatio: Float,
+    enableSpotMetering: Boolean,
+    showMeteringReticle: Boolean,
     showGuideGrid: Boolean,
     showLevelIndicator: Boolean,
     onMeteringPointChanged: (MeteringPoint) -> Unit,
@@ -90,6 +93,7 @@ fun MeterCameraPreview(
     val currentMeteringMode by rememberUpdatedState(meteringMode)
     val currentMeteringPoint by rememberUpdatedState(meteringPoint)
     val currentViewfinderAspectRatio by rememberUpdatedState(viewfinderAspectRatio)
+    val currentEnableSpotMetering by rememberUpdatedState(enableSpotMetering)
     val currentReadingCallback by rememberUpdatedState(onReadingAvailable)
     val currentRequestedZoomRatio by rememberUpdatedState(requestedZoomRatio)
     val currentZoomCapabilityCallback by rememberUpdatedState(onZoomCapabilityResolved)
@@ -131,12 +135,21 @@ fun MeterCameraPreview(
                             val exposureTimeNs = result.get(CaptureResult.SENSOR_EXPOSURE_TIME)
                             val sensitivity = result.get(CaptureResult.SENSOR_SENSITIVITY)
                             val aperture = result.get(CaptureResult.LENS_APERTURE)
+                            val colorGains = result.get(CaptureResult.COLOR_CORRECTION_GAINS)
                             if (exposureTimeNs != null && sensitivity != null && aperture != null) {
                                 latestMetadata.set(
                                     FrameExposureMetadata(
                                         exposureTimeNs = exposureTimeNs,
                                         sensitivity = sensitivity,
                                         aperture = aperture,
+                                        whiteBalanceGains = colorGains?.let { gains ->
+                                            WhiteBalanceGains(
+                                                red = gains.red,
+                                                greenEven = gains.greenEven,
+                                                greenOdd = gains.greenOdd,
+                                                blue = gains.blue,
+                                            )
+                                        },
                                     )
                                 )
                             }
@@ -247,7 +260,7 @@ fun MeterCameraPreview(
     Box(
         modifier = modifier.pointerInput(Unit) {
             detectTapGestures { tapOffset ->
-                if (currentMeteringMode == MeteringMode.SPOT) {
+                if (currentEnableSpotMetering && currentMeteringMode == MeteringMode.SPOT) {
                     val width = size.width.toFloat().coerceAtLeast(1f)
                     val height = size.height.toFloat().coerceAtLeast(1f)
                     onMeteringPointChanged(
@@ -274,7 +287,7 @@ fun MeterCameraPreview(
             LevelIndicatorOverlay()
         }
 
-        displayedReticlePoint?.let { reticlePoint ->
+        displayedReticlePoint?.takeIf { showMeteringReticle }?.let { reticlePoint ->
             MeterReticle(
                 meteringPoint = reticlePoint,
                 isAeLocked = isAeLocked,

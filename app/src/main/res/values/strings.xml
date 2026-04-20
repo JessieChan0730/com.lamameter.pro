@@ -131,4 +131,27 @@
     <string name="zoom_control">Zoom</string>
     <string name="switch_zoom_to_slider">Switch zoom control to slider</string>
     <string name="switch_zoom_to_buttons">Switch zoom control to zoom buttons</string>
+    <string name="open_tool_drawer">Open tool drawer</string>
+    <string name="tool_drawer_title">Tools</string>
+    <string name="tool_drawer_caption">Switch between metering tools.</string>
+    <string name="analysis_tool_meter">Meter</string>
+    <string name="analysis_tool_white_balance">White Balance</string>
+    <string name="white_balance_title">White balance</string>
+    <string name="white_balance_short">WB</string>
+    <string name="white_balance_tone_short">Tone</string>
+    <string name="white_balance_placeholder_hint">Point the camera at the scene to estimate color temperature.</string>
+    <string name="white_balance_estimated_caption">Estimated from the current camera white balance state.</string>
+    <string name="status_live_white_balance">Live white balance</string>
+    <string name="status_single_white_balance_ready">Single white balance mode. Tap preview to sample.</string>
+    <string name="status_single_white_balance_pending">Capturing one white balance sample…</string>
+    <string name="status_single_white_balance_done">White balance sample captured</string>
+    <string name="tap_to_sample_white_balance">Tap preview once to sample white balance</string>
+    <string name="white_balance_condition_candle">Candle</string>
+    <string name="white_balance_condition_tungsten">Tungsten</string>
+    <string name="white_balance_condition_fluorescent">Fluorescent</string>
+    <string name="white_balance_condition_sunlight">Sunlight</string>
+    <string name="white_balance_condition_cloudy">Cloudy</string>
+    <string name="white_balance_condition_shade">Shade</string>
+    <string name="white_balance_tone_cool">Cool tone</string>
+    <string name="white_balance_tone_warm">Warm tone</string>
 </resources>

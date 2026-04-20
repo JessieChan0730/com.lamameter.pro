@@ -23,6 +23,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -50,6 +51,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AcUnit
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.ArrowDropDown
@@ -58,22 +60,28 @@ import androidx.compose.material.icons.rounded.Brightness6
 import androidx.compose.material.icons.rounded.BrightnessAuto
 import androidx.compose.material.icons.rounded.CameraAlt
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Cloud
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.EmojiObjects
 import androidx.compose.material.icons.rounded.Equalizer
 import androidx.compose.material.icons.rounded.FileDownload
 import androidx.compose.material.icons.rounded.FileUpload
+import androidx.compose.material.icons.rounded.Fluorescent
 import androidx.compose.material.icons.rounded.GridOff
 import androidx.compose.material.icons.rounded.GridOn
+import androidx.compose.material.icons.rounded.Lightbulb
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.LockOpen
 import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.NightlightRound
 import androidx.compose.material.icons.rounded.PhotoCamera
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Straighten
 import androidx.compose.material.icons.rounded.SwapHoriz
 import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material.icons.rounded.WbSunny
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
@@ -137,12 +145,14 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.ViewModelProvider
 import com.yourbrand.lumameter.pro.R
 import com.yourbrand.lumameter.pro.data.calibration.CalibrationBackupCodec
+import com.yourbrand.lumameter.pro.domain.exposure.AnalysisTool
 import com.yourbrand.lumameter.pro.domain.exposure.CalibrationPreset
 import com.yourbrand.lumameter.pro.domain.exposure.ExposureMode
 import com.yourbrand.lumameter.pro.domain.exposure.LuminanceReading
 import com.yourbrand.lumameter.pro.domain.exposure.MeteringMode
 import com.yourbrand.lumameter.pro.domain.exposure.MeteringPoint
 import com.yourbrand.lumameter.pro.domain.exposure.ViewfinderAspectRatio
+import com.yourbrand.lumameter.pro.domain.exposure.WhiteBalanceCondition
 import com.yourbrand.lumameter.pro.ui.components.HistogramChart
 import com.yourbrand.lumameter.pro.ui.components.MeterChoiceChip
 import com.yourbrand.lumameter.pro.ui.components.MeterDialog
@@ -367,6 +377,7 @@ fun MeterRoute(
                 onRequestPermission = { permissionLauncher.launch(Manifest.permission.CAMERA) },
                 onReadingAvailable = viewModel::onFrameAnalyzed,
                 onCameraError = viewModel::onCameraError,
+                onAnalysisToolSelected = viewModel::setAnalysisTool,
                 onMeteringModeSelected = viewModel::setMeteringMode,
                 onMeteringPointChanged = viewModel::setMeteringPoint,
                 onZoomCapabilityResolved = viewModel::updateZoomCapability,
@@ -478,6 +489,7 @@ private fun MeterMainPage(
     onRequestPermission: () -> Unit,
     onReadingAvailable: (LuminanceReading) -> Unit,
     onCameraError: (String) -> Unit,
+    onAnalysisToolSelected: (AnalysisTool) -> Unit,
     onMeteringModeSelected: (MeteringMode) -> Unit,
     onMeteringPointChanged: (MeteringPoint) -> Unit,
     onZoomCapabilityResolved: (Float, Float) -> Unit,
@@ -499,6 +511,7 @@ private fun MeterMainPage(
 ) {
     var viewportTopPx by remember { mutableStateOf<Float?>(null) }
     var statusRowBottomPx by remember { mutableStateOf<Float?>(null) }
+    var isToolDrawerOpen by rememberSaveable { mutableStateOf(false) }
     val showPinnedSummary by remember(hasCameraPermission, viewportTopPx, statusRowBottomPx) {
         derivedStateOf {
             shouldShowPinnedSummary(
@@ -507,6 +520,9 @@ private fun MeterMainPage(
                 statusRowBottomPx = statusRowBottomPx,
             )
         }
+    }
+    BackHandler(enabled = isToolDrawerOpen) {
+        isToolDrawerOpen = false
     }
 
     Box(
@@ -540,6 +556,8 @@ private fun MeterMainPage(
             item {
                 MainHeader(
                     uiState = uiState,
+                    isToolDrawerOpen = isToolDrawerOpen,
+                    onToggleToolDrawer = { isToolDrawerOpen = !isToolDrawerOpen },
                     onOpenModeSheet = onOpenModeSheet,
                     onOpenSettings = onOpenSettings,
                 )
@@ -563,10 +581,12 @@ private fun MeterMainPage(
                                 },
                                 uiState = uiState,
                             )
-                            MeteringTabs(
-                                currentMode = uiState.meteringMode,
-                                onMeteringModeSelected = onMeteringModeSelected,
-                            )
+                            if (uiState.analysisTool == AnalysisTool.METER) {
+                                MeteringTabs(
+                                    currentMode = uiState.meteringMode,
+                                    onMeteringModeSelected = onMeteringModeSelected,
+                                )
+                            }
                             PreviewSection(
                                 uiState = uiState,
                                 onReadingAvailable = onReadingAvailable,
@@ -580,27 +600,31 @@ private fun MeterMainPage(
                                 viewfinderAspectRatio = viewfinderAspectRatio,
                                 onPreviewTapped = onPreviewTapped,
                             )
-                            ExposureSummaryRow(
-                                uiState = uiState,
-                                onOpenApertureLibrary = onOpenApertureLibrary,
-                                onOpenShutterLibrary = onOpenShutterLibrary,
-                            )
-                            ExposureAdjustmentRow(
-                                uiState = uiState,
-                                onAeLockToggled = onAeLockToggled,
-                                onCompensationChanged = onCompensationChanged,
-                                onOpenCalibration = onOpenCalibration,
-                            )
-                            IsoSelector(
-                                values = uiState.isoOptions,
-                                selectedValue = uiState.selectedIso,
-                                onIsoSelected = onIsoSelected,
-                            )
-                            NdFilterSelector(
-                                values = uiState.ndFilterOptions,
-                                selectedValue = uiState.selectedNdFilter,
-                                onNdFilterSelected = onNdFilterSelected,
-                            )
+                            if (uiState.analysisTool == AnalysisTool.METER) {
+                                ExposureSummaryRow(
+                                    uiState = uiState,
+                                    onOpenApertureLibrary = onOpenApertureLibrary,
+                                    onOpenShutterLibrary = onOpenShutterLibrary,
+                                )
+                                ExposureAdjustmentRow(
+                                    uiState = uiState,
+                                    onAeLockToggled = onAeLockToggled,
+                                    onCompensationChanged = onCompensationChanged,
+                                    onOpenCalibration = onOpenCalibration,
+                                )
+                                IsoSelector(
+                                    values = uiState.isoOptions,
+                                    selectedValue = uiState.selectedIso,
+                                    onIsoSelected = onIsoSelected,
+                                )
+                                NdFilterSelector(
+                                    values = uiState.ndFilterOptions,
+                                    selectedValue = uiState.selectedNdFilter,
+                                    onNdFilterSelected = onNdFilterSelected,
+                                )
+                            } else {
+                                WhiteBalanceSection(uiState = uiState)
+                            }
                         }
                     }
                 }
@@ -621,7 +645,7 @@ private fun MeterMainPage(
         }
 
         AnimatedVisibility(
-            visible = showPinnedSummary,
+            visible = showPinnedSummary && uiState.analysisTool == AnalysisTool.METER,
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .fillMaxWidth()
@@ -637,32 +661,93 @@ private fun MeterMainPage(
                 uiState = uiState,
             )
         }
+
+        AnimatedVisibility(
+            visible = isToolDrawerOpen,
+            modifier = Modifier.fillMaxSize(),
+            enter = fadeIn(animationSpec = tween(durationMillis = 180)),
+            exit = fadeOut(animationSpec = tween(durationMillis = 140)),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.20f))
+                    .pointerInput(Unit) {
+                        detectTapGestures { isToolDrawerOpen = false }
+                    },
+            )
+        }
+
+        AnimatedVisibility(
+            visible = isToolDrawerOpen,
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .safeDrawingPadding()
+                .padding(start = 16.dp, top = 12.dp),
+            enter = slideInHorizontally(
+                animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing),
+                initialOffsetX = { -it },
+            ) + fadeIn(animationSpec = tween(durationMillis = 180)),
+            exit = slideOutHorizontally(
+                animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing),
+                targetOffsetX = { -it / 3 },
+            ) + fadeOut(animationSpec = tween(durationMillis = 140)),
+        ) {
+            AnalysisToolDrawer(
+                currentTool = uiState.analysisTool,
+                onToolSelected = { tool ->
+                    onAnalysisToolSelected(tool)
+                    isToolDrawerOpen = false
+                },
+            )
+        }
     }
 }
 
 @Composable
 private fun MainHeader(
     uiState: MeterUiState,
+    isToolDrawerOpen: Boolean,
+    onToggleToolDrawer: () -> Unit,
     onOpenModeSheet: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
+    val whiteBalanceReading = uiState.liveReading?.whiteBalanceReading
+
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        MeterChoiceChip(
-            label = exposureModeLabel(uiState.exposureMode),
-            selected = true,
-            trailingIcon = Icons.Rounded.ArrowDropDown,
-            onClick = onOpenModeSheet,
-        )
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            ToolDrawerButton(
+                isOpen = isToolDrawerOpen,
+                onClick = onToggleToolDrawer,
+            )
+
+            if (uiState.analysisTool == AnalysisTool.METER) {
+                MeterChoiceChip(
+                    label = exposureModeLabel(uiState.exposureMode),
+                    selected = true,
+                    trailingIcon = Icons.Rounded.ArrowDropDown,
+                    onClick = onOpenModeSheet,
+                )
+            }
+        }
 
         Row(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Surface(
+                modifier = if (uiState.analysisTool == AnalysisTool.WHITE_BALANCE) {
+                    Modifier.width(62.dp)
+                } else {
+                    Modifier
+                },
                 shape = RoundedCornerShape(14.dp),
                 color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
                 tonalElevation = 3.dp,
@@ -672,15 +757,43 @@ private fun MainHeader(
                     horizontalAlignment = Alignment.End,
                 ) {
                     Text(
-                        text = stringResource(R.string.live_ev_short),
-                        style = MaterialTheme.typography.labelMedium,
+                        text = if (uiState.analysisTool == AnalysisTool.METER) {
+                            stringResource(R.string.live_ev_short)
+                        } else {
+                            stringResource(R.string.white_balance_tone_short)
+                        },
+                        modifier = Modifier.offset(x = 2.dp),
+                        style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    Text(
-                        text = formatEv(uiState.exposureResult.sceneEv100),
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.SemiBold,
-                    )
+                    if (uiState.analysisTool == AnalysisTool.METER) {
+                        Text(
+                            text = formatEv(uiState.exposureResult.sceneEv100),
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    } else {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Box(
+                            modifier = Modifier.fillMaxWidth(),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            if (whiteBalanceReading != null) {
+                                Icon(
+                                    imageVector = whiteBalanceToneIcon(whiteBalanceReading.kelvin),
+                                    contentDescription = whiteBalanceToneLabel(whiteBalanceReading.kelvin),
+                                    modifier = Modifier.size(28.dp),
+                                    tint = MaterialTheme.colorScheme.onSurface,
+                                )
+                            } else {
+                                Text(
+                                    text = "--",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                            }
+                        }
+                    }
                 }
             }
 
@@ -711,7 +824,7 @@ private fun StatusRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            text = meterStatusLabel(uiState),
+            text = mainStatusLabel(uiState),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.weight(1f),
@@ -719,11 +832,13 @@ private fun StatusRow(
             overflow = TextOverflow.Ellipsis,
         )
 
-        val reading = uiState.liveReading
-        if (reading != null) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                MeterChoiceChip(label = "L ${formatLuma(reading.meteredLuma)}")
-                MeterChoiceChip(label = "AVG ${formatLuma(reading.averageLuma)}")
+        if (uiState.analysisTool == AnalysisTool.METER) {
+            val reading = uiState.liveReading
+            if (reading != null) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    MeterChoiceChip(label = "L ${formatLuma(reading.meteredLuma)}")
+                    MeterChoiceChip(label = "AVG ${formatLuma(reading.averageLuma)}")
+                }
             }
         }
     }
@@ -820,6 +935,149 @@ private fun PinnedSummaryMetric(
             color = MaterialTheme.colorScheme.onSurface,
             maxLines = 1,
         )
+    }
+}
+
+@Composable
+private fun ToolDrawerButton(
+    isOpen: Boolean,
+    onClick: () -> Unit,
+) {
+    Surface(
+        shape = CircleShape,
+        color = if (isOpen) {
+            MaterialTheme.colorScheme.primaryContainer
+        } else {
+            MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)
+        },
+        tonalElevation = 3.dp,
+    ) {
+        IconButton(onClick = onClick) {
+            Icon(
+                imageVector = Icons.Rounded.Tune,
+                contentDescription = stringResource(R.string.open_tool_drawer),
+                tint = if (isOpen) {
+                    MaterialTheme.colorScheme.onPrimaryContainer
+                } else {
+                    MaterialTheme.colorScheme.onSurface
+                },
+            )
+        }
+    }
+}
+
+@Composable
+private fun AnalysisToolDrawer(
+    currentTool: AnalysisTool,
+    onToolSelected: (AnalysisTool) -> Unit,
+) {
+    MeterPanel(
+        modifier = Modifier.width(228.dp),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Row(
+                modifier = Modifier
+                    .padding(horizontal = 14.dp)
+                    .fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Tune,
+                        contentDescription = null,
+                        modifier = Modifier
+                            .padding(10.dp)
+                            .size(18.dp),
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    )
+                }
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    Text(
+                        text = stringResource(R.string.tool_drawer_title),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = stringResource(R.string.tool_drawer_caption),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 12.dp, end = 12.dp, top = 6.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                AnalysisTool.entries.forEach { tool ->
+                    val selected = currentTool == tool
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(16.dp))
+                            .clickable { onToolSelected(tool) },
+                        shape = RoundedCornerShape(16.dp),
+                        color = if (selected) {
+                            MaterialTheme.colorScheme.primaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.66f)
+                        },
+                        tonalElevation = if (selected) 2.dp else 0.dp,
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 14.dp, vertical = 12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(
+                                imageVector = analysisToolIcon(
+                                    tool = tool,
+                                ),
+                                contentDescription = null,
+                                tint = if (selected) {
+                                    MaterialTheme.colorScheme.onPrimaryContainer
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                },
+                            )
+                            Text(
+                                text = analysisToolLabel(tool),
+                                modifier = Modifier.weight(1f),
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                                color = if (selected) {
+                                    MaterialTheme.colorScheme.onPrimaryContainer
+                                } else {
+                                    MaterialTheme.colorScheme.onSurface
+                                },
+                            )
+                            if (selected) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Check,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -956,6 +1214,95 @@ private fun PreviewSection(
 }
 
 @Composable
+private fun WhiteBalanceSection(
+    uiState: MeterUiState,
+) {
+    val reading = uiState.liveReading?.whiteBalanceReading
+    val icon = whiteBalanceConditionIcon(reading?.condition) ?: Icons.Rounded.WbSunny
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.62f),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Row(
+                    modifier = Modifier.weight(1f),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                    ) {
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = null,
+                            modifier = Modifier
+                                .padding(12.dp)
+                                .size(24.dp),
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        )
+                    }
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                    ) {
+                        Text(
+                            text = reading?.let {
+                                whiteBalanceConditionLabel(it.condition)
+                            } ?: stringResource(R.string.white_balance_title),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Text(
+                            text = if (reading == null) {
+                                stringResource(R.string.white_balance_placeholder_hint)
+                            } else {
+                                stringResource(R.string.white_balance_estimated_caption)
+                            },
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+
+                Text(
+                    text = reading?.let { formatKelvin(it.kelvin) } ?: "--",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                )
+            }
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                WhiteBalanceCondition.entries.forEach { condition ->
+                    MeterChoiceChip(
+                        label = whiteBalanceConditionLabel(condition),
+                        selected = reading?.condition == condition,
+                        leadingIcon = whiteBalanceConditionIcon(condition),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun PreviewCard(
     uiState: MeterUiState,
     onReadingAvailable: (LuminanceReading) -> Unit,
@@ -989,6 +1336,8 @@ private fun PreviewCard(
                 viewfinderAspectRatio = viewfinderAspectRatio,
                 isAeLocked = uiState.isAeLocked,
                 requestedZoomRatio = uiState.zoomRatio,
+                enableSpotMetering = uiState.analysisTool == AnalysisTool.METER,
+                showMeteringReticle = uiState.analysisTool == AnalysisTool.METER,
                 showGuideGrid = showGuideGrid,
                 showLevelIndicator = showLevelIndicator,
                 onMeteringPointChanged = onMeteringPointChanged,
@@ -1033,6 +1382,7 @@ private fun PreviewCard(
                 }
             }
             val previewTapHint = resolvePreviewTapHint(
+                analysisTool = uiState.analysisTool,
                 meteringMode = uiState.meteringMode,
                 isLiveMeteringEnabled = uiState.isLiveMeteringEnabled,
                 hasCustomSpotMeteringPoint = uiState.hasCustomSpotMeteringPoint,
@@ -1043,6 +1393,7 @@ private fun PreviewCard(
                         PreviewTapHint.TAP_TO_METER -> stringResource(R.string.tap_to_meter)
                         PreviewTapHint.TAP_TO_METER_ONCE -> stringResource(R.string.tap_to_meter_once)
                         PreviewTapHint.TAP_TO_REPOSITION_METER -> stringResource(R.string.tap_to_reposition_meter)
+                        PreviewTapHint.TAP_TO_SAMPLE_WHITE_BALANCE -> stringResource(R.string.tap_to_sample_white_balance)
                     },
                     modifier = Modifier
                         .align(Alignment.BottomStart)
@@ -3321,6 +3672,10 @@ private fun formatLuma(value: Double): String {
     return String.format(Locale.getDefault(), "%.0f", value)
 }
 
+private fun formatKelvin(value: Int): String {
+    return "${value}K"
+}
+
 private fun formatZoomRatio(value: Float): String {
     val roundedWhole = value.roundToInt().toFloat()
     return if (abs(value - roundedWhole) < 0.05f) {
@@ -3425,11 +3780,71 @@ private fun exposureModeLabel(mode: ExposureMode): String {
 }
 
 @Composable
+private fun analysisToolLabel(tool: AnalysisTool): String {
+    return when (tool) {
+        AnalysisTool.METER -> stringResource(R.string.analysis_tool_meter)
+        AnalysisTool.WHITE_BALANCE -> stringResource(R.string.analysis_tool_white_balance)
+    }
+}
+
+private fun analysisToolIcon(
+    tool: AnalysisTool,
+): ImageVector {
+    return when (tool) {
+        AnalysisTool.METER -> Icons.Rounded.Equalizer
+        AnalysisTool.WHITE_BALANCE -> Icons.Rounded.WbSunny
+    }
+}
+
+@Composable
+private fun whiteBalanceToneLabel(kelvin: Int): String {
+    return if (kelvin >= WHITE_BALANCE_COOL_THRESHOLD_KELVIN) {
+        stringResource(R.string.white_balance_tone_cool)
+    } else {
+        stringResource(R.string.white_balance_tone_warm)
+    }
+}
+
+private fun whiteBalanceToneIcon(kelvin: Int): ImageVector {
+    return if (kelvin >= WHITE_BALANCE_COOL_THRESHOLD_KELVIN) {
+        Icons.Rounded.AcUnit
+    } else {
+        Icons.Rounded.WbSunny
+    }
+}
+
+@Composable
 private fun meteringModeLabel(mode: MeteringMode): String {
     return when (mode) {
         MeteringMode.AVERAGE -> stringResource(R.string.metering_mode_average)
         MeteringMode.CENTER_WEIGHTED -> stringResource(R.string.metering_mode_center_weighted)
         MeteringMode.SPOT -> stringResource(R.string.metering_mode_spot)
+    }
+}
+
+@Composable
+private fun whiteBalanceConditionLabel(condition: WhiteBalanceCondition): String {
+    return when (condition) {
+        WhiteBalanceCondition.CANDLE -> stringResource(R.string.white_balance_condition_candle)
+        WhiteBalanceCondition.TUNGSTEN -> stringResource(R.string.white_balance_condition_tungsten)
+        WhiteBalanceCondition.FLUORESCENT -> stringResource(R.string.white_balance_condition_fluorescent)
+        WhiteBalanceCondition.SUNLIGHT -> stringResource(R.string.white_balance_condition_sunlight)
+        WhiteBalanceCondition.CLOUDY -> stringResource(R.string.white_balance_condition_cloudy)
+        WhiteBalanceCondition.SHADE -> stringResource(R.string.white_balance_condition_shade)
+    }
+}
+
+private fun whiteBalanceConditionIcon(
+    condition: WhiteBalanceCondition?,
+): ImageVector? {
+    return when (condition) {
+        WhiteBalanceCondition.CANDLE -> Icons.Rounded.EmojiObjects
+        WhiteBalanceCondition.TUNGSTEN -> Icons.Rounded.Lightbulb
+        WhiteBalanceCondition.FLUORESCENT -> Icons.Rounded.Fluorescent
+        WhiteBalanceCondition.SUNLIGHT -> Icons.Rounded.WbSunny
+        WhiteBalanceCondition.CLOUDY -> Icons.Rounded.Cloud
+        WhiteBalanceCondition.SHADE -> Icons.Rounded.NightlightRound
+        null -> null
     }
 }
 
@@ -3457,17 +3872,54 @@ private fun meterStatusLabel(uiState: MeterUiState): String {
     }
 }
 
+@Composable
+private fun whiteBalanceStatusLabel(uiState: MeterUiState): String {
+    val cameraError = uiState.cameraError
+    if (cameraError != null) {
+        return cameraError
+    }
+
+    if (!uiState.isLiveMeteringEnabled) {
+        return when {
+            uiState.isManualMeterPending -> stringResource(R.string.status_single_white_balance_pending)
+            uiState.liveReading?.whiteBalanceReading == null -> stringResource(R.string.status_single_white_balance_ready)
+            else -> stringResource(R.string.status_single_white_balance_done)
+        }
+    }
+
+    return stringResource(R.string.status_live_white_balance)
+}
+
+@Composable
+private fun mainStatusLabel(uiState: MeterUiState): String {
+    return if (uiState.analysisTool == AnalysisTool.WHITE_BALANCE) {
+        whiteBalanceStatusLabel(uiState)
+    } else {
+        meterStatusLabel(uiState)
+    }
+}
+
 internal enum class PreviewTapHint {
     TAP_TO_METER,
     TAP_TO_METER_ONCE,
     TAP_TO_REPOSITION_METER,
+    TAP_TO_SAMPLE_WHITE_BALANCE,
 }
 
 internal fun resolvePreviewTapHint(
+    analysisTool: AnalysisTool,
     meteringMode: MeteringMode,
     isLiveMeteringEnabled: Boolean,
     hasCustomSpotMeteringPoint: Boolean,
 ): PreviewTapHint? {
+    if (analysisTool == AnalysisTool.WHITE_BALANCE) {
+        return if (isLiveMeteringEnabled) {
+            null
+        } else {
+            PreviewTapHint.TAP_TO_SAMPLE_WHITE_BALANCE
+        }
+    }
+
     return when {
         !isLiveMeteringEnabled -> PreviewTapHint.TAP_TO_METER_ONCE
         meteringMode != MeteringMode.SPOT -> null
@@ -3486,3 +3938,4 @@ private fun valuesEqual(
 private const val MIN_SHUTTER_SECONDS = 1.0 / 8000.0
 private const val MAX_SHUTTER_SECONDS = 30.0
 private const val PINNED_SUMMARY_VISIBILITY_EPSILON_PX = 1f
+private const val WHITE_BALANCE_COOL_THRESHOLD_KELVIN = 5000
