@@ -142,13 +142,15 @@ data class WhiteBalanceGains(
     val blue: Float,
 )
 
-enum class WhiteBalanceCondition {
-    CANDLE,
-    TUNGSTEN,
-    FLUORESCENT,
-    SUNLIGHT,
-    CLOUDY,
-    SHADE,
+enum class WhiteBalanceCondition(
+    val referenceKelvin: Int,
+) {
+    CANDLE(referenceKelvin = 2200),
+    TUNGSTEN(referenceKelvin = 3000),
+    FLUORESCENT(referenceKelvin = 4000),
+    SUNLIGHT(referenceKelvin = 5500),
+    CLOUDY(referenceKelvin = 6500),
+    SHADE(referenceKelvin = 7500),
     ;
 
     companion object {

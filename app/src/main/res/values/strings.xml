@@ -138,6 +138,7 @@
     <string name="analysis_tool_white_balance">White Balance</string>
     <string name="white_balance_title">White balance</string>
     <string name="white_balance_short">WB</string>
+    <string name="white_balance_kelvin_short">K</string>
     <string name="white_balance_tone_short">Tone</string>
     <string name="white_balance_placeholder_hint">Point the camera at the scene to estimate color temperature.</string>
     <string name="white_balance_estimated_caption">Estimated from the current camera white balance state.</string>
@@ -152,6 +153,15 @@
     <string name="white_balance_condition_sunlight">Sunlight</string>
     <string name="white_balance_condition_cloudy">Cloudy</string>
     <string name="white_balance_condition_shade">Shade</string>
+    <string name="white_balance_condition_candle_description">Very warm candlelight for dining scenes, night interiors, and atmospheric close-ups.</string>
+    <string name="white_balance_condition_tungsten_description">Warm tungsten lighting suited to homes, cafes, stage practicals, and other indoor scenes.</string>
+    <string name="white_balance_condition_fluorescent_description">Neutral-cool fluorescent light common in offices, classrooms, supermarkets, and studio fill.</string>
+    <string name="white_balance_condition_sunlight_description">Direct sunlight with a balanced daylight look, ideal for outdoor portraits, streets, travel, and product reference shots.</string>
+    <string name="white_balance_condition_cloudy_description">Softer cool daylight for overcast portraits, city walks, landscapes, and gentle skin tones.</string>
+    <string name="white_balance_condition_shade_description">Cool ambient shade that works well for backlit subjects, tree cover, alleys, and building shadows.</string>
+    <string name="white_balance_bias_warm">Warm ↑</string>
+    <string name="white_balance_bias_cool">Cool ↓</string>
+    <string name="white_balance_bias_neutral">Balanced</string>
     <string name="white_balance_tone_cool">Cool tone</string>
     <string name="white_balance_tone_warm">Warm tone</string>
 </resources>
