@@ -9,6 +9,7 @@ import com.yourbrand.lumameter.pro.domain.exposure.MeteringPoint
 import com.yourbrand.lumameter.pro.domain.exposure.PREVIEW_CONTAINER_ASPECT_RATIO
 import com.yourbrand.lumameter.pro.domain.exposure.ViewfinderAspectRatio
 import com.yourbrand.lumameter.pro.domain.exposure.ViewfinderRect
+import com.yourbrand.lumameter.pro.domain.exposure.WhiteBalanceEstimator
 import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.math.hypot
@@ -21,6 +22,7 @@ class LuminanceAnalyzer(
     private val viewfinderAspectRatioProvider: () -> ViewfinderAspectRatio,
     private val metadataProvider: () -> FrameExposureMetadata? = { null },
     private val onReadingAvailable: (LuminanceReading) -> Unit,
+    private val whiteBalanceEstimator: WhiteBalanceEstimator = WhiteBalanceEstimator(),
     private val minIntervalMs: Long = DEFAULT_MIN_INTERVAL_MS,
 ) : ImageAnalysis.Analyzer {
 
@@ -34,11 +36,17 @@ class LuminanceAnalyzer(
         }
         try {
             val yPlane = image.planes.firstOrNull() ?: return
+            val uPlane = image.planes.getOrNull(1)
+            val vPlane = image.planes.getOrNull(2)
             val buffer = yPlane.buffer
             val width = image.width
             val height = image.height
             val rowStride = yPlane.rowStride
             val pixelStride = yPlane.pixelStride
+            val metadata = metadataProvider()
+            val shouldEstimateWhiteBalanceFromRgb = metadata?.whiteBalanceGains == null &&
+                uPlane != null &&
+                vPlane != null
 
             val meteringMode = meteringModeProvider()
             val previewViewfinderRect = ViewfinderRect.centered(
@@ -78,6 +86,14 @@ class LuminanceAnalyzer(
             var centerWeightTotal = 0.0
             var spotSum = 0.0
             var spotCount = 0
+            var rgbSampleCount = 0
+            var averageRed = 0.0
+            var averageGreen = 0.0
+            var averageBlue = 0.0
+            var neutralRed = 0.0
+            var neutralGreen = 0.0
+            var neutralBlue = 0.0
+            var neutralWeightTotal = 0.0
 
             val centerX = cropLeft + cropWidth / 2.0
             val centerY = cropTop + cropHeight / 2.0
@@ -106,12 +122,59 @@ class LuminanceAnalyzer(
                         spotSum += lumaDouble
                         spotCount += 1
                     }
+
+                    if (shouldEstimateWhiteBalanceFromRgb) {
+                        val rgb = yuvToRgb(
+                            y = luma,
+                            u = readChromaSample(uPlane = uPlane, x = x, y = y),
+                            v = readChromaSample(uPlane = vPlane, x = x, y = y),
+                        )
+                        averageRed += rgb.red
+                        averageGreen += rgb.green
+                        averageBlue += rgb.blue
+                        rgbSampleCount += 1
+
+                        val maxChannel = max(rgb.red, max(rgb.green, rgb.blue))
+                        val minChannel = min(rgb.red, min(rgb.green, rgb.blue))
+                        val saturation = if (maxChannel <= 0.0001) {
+                            0.0
+                        } else {
+                            (maxChannel - minChannel) / maxChannel
+                        }
+                        val neutralWeight = (1.0 - saturation * 1.8)
+                            .coerceIn(0.0, 1.0) *
+                            (0.35 + maxChannel * 0.65)
+                        if (neutralWeight > 0.08) {
+                            neutralRed += rgb.red * neutralWeight
+                            neutralGreen += rgb.green * neutralWeight
+                            neutralBlue += rgb.blue * neutralWeight
+                            neutralWeightTotal += neutralWeight
+                        }
+                    }
                 }
             }
 
             val averageLuma = averageSum / sampleCount.coerceAtLeast(1)
             val centerWeightedLuma = centerWeightedSum / centerWeightTotal.coerceAtLeast(1.0)
             val spotLuma = if (spotCount > 0) spotSum / spotCount else averageLuma
+            val whiteBalanceReading = whiteBalanceEstimator.estimate(
+                metadata = metadata,
+                red = when {
+                    neutralWeightTotal > 0.0 -> neutralRed / neutralWeightTotal
+                    rgbSampleCount > 0 -> averageRed / rgbSampleCount
+                    else -> null
+                },
+                green = when {
+                    neutralWeightTotal > 0.0 -> neutralGreen / neutralWeightTotal
+                    rgbSampleCount > 0 -> averageGreen / rgbSampleCount
+                    else -> null
+                },
+                blue = when {
+                    neutralWeightTotal > 0.0 -> neutralBlue / neutralWeightTotal
+                    rgbSampleCount > 0 -> averageBlue / rgbSampleCount
+                    else -> null
+                },
+            )
 
             val meteredLuma = when (meteringMode) {
                 MeteringMode.AVERAGE -> averageLuma
@@ -129,7 +192,8 @@ class LuminanceAnalyzer(
                     rotationDegrees = image.imageInfo.rotationDegrees,
                     meteringMode = meteringMode,
                     meteringPoint = mappedPoint,
-                    metadata = metadataProvider(),
+                    metadata = metadata,
+                    whiteBalanceReading = whiteBalanceReading,
                     histogram = histogram,
                 )
             )
@@ -180,6 +244,35 @@ class LuminanceAnalyzer(
             bottom = mappedPoints.maxOf { it.y },
         )
     }
+
+    private fun readChromaSample(
+        uPlane: ImageProxy.PlaneProxy,
+        x: Int,
+        y: Int,
+    ): Int {
+        val chromaX = x / 2
+        val chromaY = y / 2
+        val byteIndex = chromaY * uPlane.rowStride + chromaX * uPlane.pixelStride
+        return uPlane.buffer.get(byteIndex).toInt() and 0xFF
+    }
+
+    private fun yuvToRgb(
+        y: Int,
+        u: Int,
+        v: Int,
+    ): RgbSample {
+        val luma = y.toDouble()
+        val chromaU = u - 128.0
+        val chromaV = v - 128.0
+        val red = (luma + 1.402 * chromaV) / 255.0
+        val green = (luma - 0.344136 * chromaU - 0.714136 * chromaV) / 255.0
+        val blue = (luma + 1.772 * chromaU) / 255.0
+        return RgbSample(
+            red = red.coerceIn(0.0, 1.0),
+            green = green.coerceIn(0.0, 1.0),
+            blue = blue.coerceIn(0.0, 1.0),
+        )
+    }
 }
 
 private const val DEFAULT_MIN_INTERVAL_MS = 150L
@@ -187,3 +280,9 @@ private const val DEFAULT_MIN_INTERVAL_MS = 150L
 private fun Int.saturatingExclusiveUpperBound(): Int {
     return (this - 1).coerceAtLeast(0)
 }
+
+private data class RgbSample(
+    val red: Double,
+    val green: Double,
+    val blue: Double,
+)

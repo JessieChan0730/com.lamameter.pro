@@ -1,6 +1,7 @@
 package com.yourbrand.lumameter.pro.viewmodel
 
 import androidx.lifecycle.ViewModel
+import com.yourbrand.lumameter.pro.domain.exposure.AnalysisTool
 import com.yourbrand.lumameter.pro.domain.exposure.CalibrationPreset
 import com.yourbrand.lumameter.pro.domain.exposure.ExposureCalculator
 import com.yourbrand.lumameter.pro.domain.exposure.ExposureMode
@@ -48,6 +49,7 @@ object MeterDefaults {
 }
 
 data class PersistedMeterSettings(
+    val analysisTool: AnalysisTool = AnalysisTool.METER,
     val meteringMode: MeteringMode = MeteringMode.AVERAGE,
     val selectedIso: Int = MeterDefaults.isoValues[1],
     val exposureMode: ExposureMode = ExposureMode.APERTURE_PRIORITY,
@@ -82,6 +84,7 @@ data class ZoomPresetUiModel(
 )
 
 data class MeterUiState(
+    val analysisTool: AnalysisTool = AnalysisTool.METER,
     val exposureMode: ExposureMode = ExposureMode.APERTURE_PRIORITY,
     val meteringMode: MeteringMode = MeteringMode.AVERAGE,
     val meteringPoint: MeteringPoint = MeteringPoint.Center,
@@ -120,6 +123,7 @@ class MeterViewModel(
 
     private val _uiState = MutableStateFlow(
         MeterUiState(
+            analysisTool = initialSettings.analysisTool,
             meteringMode = initialSettings.meteringMode,
             selectedIso = initialSettings.selectedIso,
             selectedNdFilter = initialSettings.selectedNdFilter,
@@ -139,6 +143,13 @@ class MeterViewModel(
 
     private var smoothedBaseEv100: Double? = null
     private var lockedBaseEv100: Double? = null
+
+    fun setAnalysisTool(tool: AnalysisTool) {
+        _uiState.update { current ->
+            current.copy(analysisTool = tool)
+        }
+        notifySettingsChanged()
+    }
 
     fun onFrameAnalyzed(reading: LuminanceReading) {
         val currentState = _uiState.value
@@ -559,6 +570,7 @@ class MeterViewModel(
         val state = _uiState.value
         onSettingsChanged?.invoke(
             PersistedMeterSettings(
+                analysisTool = state.analysisTool,
                 meteringMode = state.meteringMode,
                 selectedIso = state.selectedIso,
                 exposureMode = state.exposureMode,

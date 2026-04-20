@@ -1,5 +1,6 @@
 package com.yourbrand.lumameter.pro.ui.meter
 
+import com.yourbrand.lumameter.pro.domain.exposure.AnalysisTool
 import com.yourbrand.lumameter.pro.domain.exposure.MeteringMode
 import com.yourbrand.lumameter.pro.domain.exposure.MeteringPoint
 import org.junit.Assert.assertFalse
@@ -53,6 +54,7 @@ class MeterUiLogicTest {
         assertEquals(
             PreviewTapHint.TAP_TO_METER,
             resolvePreviewTapHint(
+                analysisTool = AnalysisTool.METER,
                 meteringMode = MeteringMode.SPOT,
                 isLiveMeteringEnabled = true,
                 hasCustomSpotMeteringPoint = false,
@@ -61,6 +63,7 @@ class MeterUiLogicTest {
         assertEquals(
             PreviewTapHint.TAP_TO_REPOSITION_METER,
             resolvePreviewTapHint(
+                analysisTool = AnalysisTool.METER,
                 meteringMode = MeteringMode.SPOT,
                 isLiveMeteringEnabled = true,
                 hasCustomSpotMeteringPoint = true,
@@ -69,6 +72,7 @@ class MeterUiLogicTest {
         assertEquals(
             PreviewTapHint.TAP_TO_METER_ONCE,
             resolvePreviewTapHint(
+                analysisTool = AnalysisTool.METER,
                 meteringMode = MeteringMode.CENTER_WEIGHTED,
                 isLiveMeteringEnabled = false,
                 hasCustomSpotMeteringPoint = false,
@@ -76,8 +80,18 @@ class MeterUiLogicTest {
         )
         assertNull(
             resolvePreviewTapHint(
+                analysisTool = AnalysisTool.METER,
                 meteringMode = MeteringMode.AVERAGE,
                 isLiveMeteringEnabled = true,
+                hasCustomSpotMeteringPoint = false,
+            )
+        )
+        assertEquals(
+            PreviewTapHint.TAP_TO_SAMPLE_WHITE_BALANCE,
+            resolvePreviewTapHint(
+                analysisTool = AnalysisTool.WHITE_BALANCE,
+                meteringMode = MeteringMode.AVERAGE,
+                isLiveMeteringEnabled = false,
                 hasCustomSpotMeteringPoint = false,
             )
         )

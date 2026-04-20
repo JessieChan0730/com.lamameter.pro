@@ -10,6 +10,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import com.yourbrand.lumameter.pro.domain.exposure.AnalysisTool
 import com.yourbrand.lumameter.pro.domain.exposure.CalibrationPreset
 import com.yourbrand.lumameter.pro.domain.exposure.ExposureMode
 import com.yourbrand.lumameter.pro.domain.exposure.MeteringMode
@@ -99,6 +100,9 @@ class MainActivity : ComponentActivity() {
 
             val initialSettings = remember {
                 PersistedMeterSettings(
+                    analysisTool = AnalysisTool.entries.firstOrNull {
+                        it.name == preferences.getString(KEY_ANALYSIS_TOOL, null)
+                    } ?: PersistedMeterSettings().analysisTool,
                     meteringMode = MeteringMode.entries.firstOrNull {
                         it.name == preferences.getString(KEY_METERING_MODE, null)
                     } ?: PersistedMeterSettings().meteringMode,
@@ -163,6 +167,7 @@ class MainActivity : ComponentActivity() {
                     initialSettings = initialSettings,
                     onSettingsChanged = { settings ->
                         preferences.edit()
+                            .putString(KEY_ANALYSIS_TOOL, settings.analysisTool.name)
                             .putString(KEY_METERING_MODE, settings.meteringMode.name)
                             .putInt(KEY_SELECTED_ISO, settings.selectedIso)
                             .putString(KEY_EXPOSURE_MODE, settings.exposureMode.name)
@@ -191,6 +196,7 @@ class MainActivity : ComponentActivity() {
         const val KEY_HISTOGRAM_ENABLED = "histogram_enabled"
         const val KEY_LEVEL_INDICATOR_ENABLED = "level_indicator_enabled"
         const val KEY_VIEWFINDER_ASPECT_RATIO = "viewfinder_aspect_ratio"
+        const val KEY_ANALYSIS_TOOL = "analysis_tool"
         const val KEY_CUSTOM_APERTURES = "custom_apertures"
         const val KEY_CUSTOM_SHUTTERS = "custom_shutters"
         const val KEY_METERING_MODE = "metering_mode"

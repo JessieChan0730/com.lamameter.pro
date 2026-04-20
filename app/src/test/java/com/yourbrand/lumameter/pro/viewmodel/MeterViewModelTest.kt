@@ -1,5 +1,6 @@
 package com.yourbrand.lumameter.pro.viewmodel
 
+import com.yourbrand.lumameter.pro.domain.exposure.AnalysisTool
 import com.yourbrand.lumameter.pro.domain.exposure.ExposureMode
 import com.yourbrand.lumameter.pro.domain.exposure.ExposureCalculator
 import com.yourbrand.lumameter.pro.domain.exposure.LuminanceReading
@@ -611,6 +612,24 @@ class MeterViewModelTest {
         viewModel.setNdFilter(16)
 
         assertEquals(16, lastSettings?.selectedNdFilter)
+    }
+
+    @Test
+    fun `analysis tool persists through initial settings and updates`() {
+        var lastSettings: PersistedMeterSettings? = null
+        val viewModel = MeterViewModel(
+            initialSettings = PersistedMeterSettings(
+                analysisTool = AnalysisTool.WHITE_BALANCE,
+            ),
+            onSettingsChanged = { lastSettings = it },
+        )
+
+        assertEquals(AnalysisTool.WHITE_BALANCE, viewModel.uiState.value.analysisTool)
+
+        viewModel.setAnalysisTool(AnalysisTool.METER)
+
+        assertEquals(AnalysisTool.METER, viewModel.uiState.value.analysisTool)
+        assertEquals(AnalysisTool.METER, lastSettings?.analysisTool)
     }
 
     private fun sampleReading(meteredLuma: Double): LuminanceReading {
