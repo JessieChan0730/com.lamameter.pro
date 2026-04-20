@@ -5,6 +5,11 @@ enum class ExposureMode {
     SHUTTER_PRIORITY,
 }
 
+enum class AnalysisTool {
+    METER,
+    WHITE_BALANCE,
+}
+
 enum class MeteringMode {
     AVERAGE,
     CENTER_WEIGHTED,
@@ -127,6 +132,42 @@ data class FrameExposureMetadata(
     val exposureTimeNs: Long,
     val sensitivity: Int,
     val aperture: Float,
+    val whiteBalanceGains: WhiteBalanceGains? = null,
+)
+
+data class WhiteBalanceGains(
+    val red: Float,
+    val greenEven: Float,
+    val greenOdd: Float,
+    val blue: Float,
+)
+
+enum class WhiteBalanceCondition {
+    CANDLE,
+    TUNGSTEN,
+    FLUORESCENT,
+    SUNLIGHT,
+    CLOUDY,
+    SHADE,
+    ;
+
+    companion object {
+        fun fromKelvin(kelvin: Int): WhiteBalanceCondition {
+            return when {
+                kelvin < 2600 -> CANDLE
+                kelvin < 3400 -> TUNGSTEN
+                kelvin < 4300 -> FLUORESCENT
+                kelvin < 5600 -> SUNLIGHT
+                kelvin < 6800 -> CLOUDY
+                else -> SHADE
+            }
+        }
+    }
+}
+
+data class WhiteBalanceReading(
+    val kelvin: Int,
+    val condition: WhiteBalanceCondition,
 )
 
 data class LuminanceReading(
@@ -138,6 +179,7 @@ data class LuminanceReading(
     val meteringMode: MeteringMode,
     val meteringPoint: MeteringPoint,
     val metadata: FrameExposureMetadata? = null,
+    val whiteBalanceReading: WhiteBalanceReading? = null,
     val histogram: IntArray = IntArray(HISTOGRAM_BIN_COUNT),
 ) {
     override fun equals(other: Any?): Boolean {
@@ -151,6 +193,7 @@ data class LuminanceReading(
             meteringMode == other.meteringMode &&
             meteringPoint == other.meteringPoint &&
             metadata == other.metadata &&
+            whiteBalanceReading == other.whiteBalanceReading &&
             histogram.contentEquals(other.histogram)
     }
 
@@ -163,6 +206,7 @@ data class LuminanceReading(
         result = 31 * result + meteringMode.hashCode()
         result = 31 * result + meteringPoint.hashCode()
         result = 31 * result + (metadata?.hashCode() ?: 0)
+        result = 31 * result + (whiteBalanceReading?.hashCode() ?: 0)
         result = 31 * result + histogram.contentHashCode()
         return result
     }

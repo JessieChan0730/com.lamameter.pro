@@ -6,10 +6,13 @@ import androidx.camera.core.ImageInfo
 import androidx.camera.core.ImageProxy
 import androidx.camera.core.impl.TagBundle
 import androidx.camera.core.impl.utils.ExifData
+import com.yourbrand.lumameter.pro.domain.exposure.FrameExposureMetadata
 import com.yourbrand.lumameter.pro.domain.exposure.LuminanceReading
 import com.yourbrand.lumameter.pro.domain.exposure.MeteringMode
 import com.yourbrand.lumameter.pro.domain.exposure.MeteringPoint
 import com.yourbrand.lumameter.pro.domain.exposure.ViewfinderAspectRatio
+import com.yourbrand.lumameter.pro.domain.exposure.WhiteBalanceCondition
+import com.yourbrand.lumameter.pro.domain.exposure.WhiteBalanceGains
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -231,6 +234,38 @@ class LuminanceAnalyzerTest {
         assertEquals(16, histogram.sum())
         assertEquals(8, histogram[32])
         assertEquals(8, histogram[224])
+    }
+
+    @Test
+    fun `white balance reading prefers camera metadata gains when available`() {
+        var reading: LuminanceReading? = null
+        val analyzer = LuminanceAnalyzer(
+            meteringModeProvider = { MeteringMode.AVERAGE },
+            meteringPointProvider = { MeteringPoint.Center },
+            viewfinderAspectRatioProvider = { ViewfinderAspectRatio.FOUR_THREE },
+            metadataProvider = {
+                FrameExposureMetadata(
+                    exposureTimeNs = 1_000_000L,
+                    sensitivity = 100,
+                    aperture = 2.0f,
+                    whiteBalanceGains = WhiteBalanceGains(
+                        red = 2.0f,
+                        greenEven = 1.0f,
+                        greenOdd = 1.0f,
+                        blue = 2.15f,
+                    ),
+                )
+            },
+            onReadingAvailable = { reading = it },
+        )
+
+        analyzer.analyze(
+            fakeImageProxy(width = 4, height = 4) { _, _ -> 80 }
+        )
+
+        assertNotNull(reading?.whiteBalanceReading)
+        assertEquals(WhiteBalanceCondition.SUNLIGHT, reading?.whiteBalanceReading?.condition)
+        assertTrue((reading?.whiteBalanceReading?.kelvin ?: 0) in 5000..5400)
     }
 
     private fun analyze(
