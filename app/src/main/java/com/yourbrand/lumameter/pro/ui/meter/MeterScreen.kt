@@ -153,6 +153,7 @@ import com.yourbrand.lumameter.pro.domain.exposure.MeteringMode
 import com.yourbrand.lumameter.pro.domain.exposure.MeteringPoint
 import com.yourbrand.lumameter.pro.domain.exposure.ViewfinderAspectRatio
 import com.yourbrand.lumameter.pro.domain.exposure.WhiteBalanceCondition
+import com.yourbrand.lumameter.pro.domain.exposure.WhiteBalanceReading
 import com.yourbrand.lumameter.pro.ui.components.HistogramChart
 import com.yourbrand.lumameter.pro.ui.components.MeterChoiceChip
 import com.yourbrand.lumameter.pro.ui.components.MeterDialog
@@ -742,9 +743,11 @@ private fun MainHeader(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            val isWhiteBalanceTool = uiState.analysisTool == AnalysisTool.WHITE_BALANCE
+
             Surface(
-                modifier = if (uiState.analysisTool == AnalysisTool.WHITE_BALANCE) {
-                    Modifier.width(62.dp)
+                modifier = if (isWhiteBalanceTool) {
+                    Modifier.width(86.dp)
                 } else {
                     Modifier
                 },
@@ -753,18 +756,29 @@ private fun MainHeader(
                 tonalElevation = 3.dp,
             ) {
                 Column(
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                    modifier = if (isWhiteBalanceTool) {
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 10.dp)
+                    } else {
+                        Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
+                    },
                     horizontalAlignment = Alignment.End,
                 ) {
                     Text(
                         text = if (uiState.analysisTool == AnalysisTool.METER) {
                             stringResource(R.string.live_ev_short)
                         } else {
-                            stringResource(R.string.white_balance_tone_short)
+                            stringResource(R.string.white_balance_kelvin_short)
                         },
-                        modifier = Modifier.offset(x = 2.dp),
+                        modifier = if (isWhiteBalanceTool) {
+                            Modifier.fillMaxWidth()
+                        } else {
+                            Modifier.offset(x = 2.dp)
+                        },
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = if (isWhiteBalanceTool) TextAlign.End else TextAlign.Start,
                     )
                     if (uiState.analysisTool == AnalysisTool.METER) {
                         Text(
@@ -773,26 +787,14 @@ private fun MainHeader(
                             fontWeight = FontWeight.SemiBold,
                         )
                     } else {
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Box(
+                        Text(
+                            text = whiteBalanceReading?.let { formatKelvin(it.kelvin) } ?: "--",
                             modifier = Modifier.fillMaxWidth(),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            if (whiteBalanceReading != null) {
-                                Icon(
-                                    imageVector = whiteBalanceToneIcon(whiteBalanceReading.kelvin),
-                                    contentDescription = whiteBalanceToneLabel(whiteBalanceReading.kelvin),
-                                    modifier = Modifier.size(28.dp),
-                                    tint = MaterialTheme.colorScheme.onSurface,
-                                )
-                            } else {
-                                Text(
-                                    text = "--",
-                                    style = MaterialTheme.typography.titleLarge,
-                                    fontWeight = FontWeight.SemiBold,
-                                )
-                            }
-                        }
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            textAlign = TextAlign.End,
+                        )
                     }
                 }
             }
@@ -839,6 +841,10 @@ private fun StatusRow(
                     MeterChoiceChip(label = "L ${formatLuma(reading.meteredLuma)}")
                     MeterChoiceChip(label = "AVG ${formatLuma(reading.averageLuma)}")
                 }
+            }
+        } else {
+            uiState.liveReading?.whiteBalanceReading?.let { reading ->
+                WhiteBalanceBiasChip(reading = reading)
             }
         }
     }
@@ -1218,7 +1224,6 @@ private fun WhiteBalanceSection(
     uiState: MeterUiState,
 ) {
     val reading = uiState.liveReading?.whiteBalanceReading
-    val icon = whiteBalanceConditionIcon(reading?.condition) ?: Icons.Rounded.WbSunny
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -1229,75 +1234,247 @@ private fun WhiteBalanceSection(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 14.dp, vertical = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(0.dp),
         ) {
-            Row(
+            WhiteBalanceConditionTrack(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Row(
-                    modifier = Modifier.weight(1f),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Surface(
-                        shape = RoundedCornerShape(16.dp),
-                        color = MaterialTheme.colorScheme.primaryContainer,
-                    ) {
-                        Icon(
-                            imageVector = icon,
-                            contentDescription = null,
-                            modifier = Modifier
-                                .padding(12.dp)
-                                .size(24.dp),
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                        )
-                    }
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(2.dp),
-                    ) {
-                        Text(
-                            text = reading?.let {
-                                whiteBalanceConditionLabel(it.condition)
-                            } ?: stringResource(R.string.white_balance_title),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                        Text(
-                            text = if (reading == null) {
-                                stringResource(R.string.white_balance_placeholder_hint)
-                            } else {
-                                stringResource(R.string.white_balance_estimated_caption)
-                            },
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-
-                Text(
-                    text = reading?.let { formatKelvin(it.kelvin) } ?: "--",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                )
-            }
-
-            Row(
+                reading = reading,
+            )
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                WhiteBalanceCondition.entries.forEach { condition ->
-                    MeterChoiceChip(
-                        label = whiteBalanceConditionLabel(condition),
-                        selected = reading?.condition == condition,
-                        leadingIcon = whiteBalanceConditionIcon(condition),
+                    .height(1.dp)
+                    .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)),
+            )
+            Spacer(modifier = Modifier.height(14.dp))
+
+            if (reading == null) {
+                Text(
+                    text = stringResource(R.string.white_balance_placeholder_hint),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                val icon = whiteBalanceConditionIcon(reading.condition) ?: Icons.Rounded.WbSunny
+
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                        ) {
+                            Icon(
+                                imageVector = icon,
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .padding(12.dp)
+                                    .size(24.dp),
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            )
+                        }
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(2.dp),
+                        ) {
+                            Text(
+                                text = whiteBalanceConditionLabel(reading.condition),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                        }
+                    }
+
+                    Text(
+                        text = whiteBalanceConditionDescription(reading.condition),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun WhiteBalanceConditionTrack(
+    reading: WhiteBalanceReading?,
+    modifier: Modifier = Modifier,
+) {
+    val selectedCondition = reading?.condition ?: WhiteBalanceCondition.SUNLIGHT
+    val density = LocalDensity.current
+
+    BoxWithConstraints(
+        modifier = modifier.padding(start = 4.dp, top = 6.dp, end = 4.dp, bottom = 0.dp),
+    ) {
+        val itemCount = WhiteBalanceCondition.entries.size
+        val itemGap = 8.dp
+        val totalGap = itemGap * (itemCount - 1)
+        val markerWidth = ((maxWidth - totalGap) / itemCount).coerceIn(60.dp, 80.dp)
+        val gapWidths = remember(itemGap) {
+            List(itemCount - 1) { itemGap }
+        }
+        val containerWidthPx = with(density) { maxWidth.toPx() }
+        val markerWidthPx = with(density) { markerWidth.toPx() }
+        val gapWidthsPx = gapWidths.map { gap -> with(density) { gap.toPx() } }
+        val selectedTrackCenterPx = remember(selectedCondition, markerWidthPx, gapWidthsPx) {
+            whiteBalanceTrackCenterPx(
+                condition = selectedCondition,
+                markerWidthPx = markerWidthPx,
+                gapWidthsPx = gapWidthsPx,
+            )
+        }
+        val translationX by animateFloatAsState(
+            targetValue = containerWidthPx / 2f - selectedTrackCenterPx,
+            animationSpec = tween(durationMillis = 450, easing = FastOutSlowInEasing),
+            label = "whiteBalanceTrackTranslation",
+        )
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(75.dp)
+                .clipToBounds(),
+        ) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .width(2.dp)
+                    .height(8.dp)
+                    .offset(y = 66.dp)
+                    .background(
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.68f),
+                        shape = CircleShape,
+                    ),
+            )
+            Row(
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .offset(y = 6.dp)
+                    .graphicsLayer {
+                        this.translationX = translationX
+                    },
+                verticalAlignment = Alignment.Top,
+            ) {
+                WhiteBalanceCondition.entries.forEachIndexed { index, condition ->
+                    val emphasis = whiteBalanceTrackEmphasis(
+                        itemCenterPx = whiteBalanceTrackCenterPx(
+                            condition = condition,
+                            markerWidthPx = markerWidthPx,
+                            gapWidthsPx = gapWidthsPx,
+                        ),
+                        currentPositionPx = selectedTrackCenterPx,
+                        containerWidthPx = containerWidthPx,
+                    )
+                    WhiteBalanceConditionTrackItem(
+                        modifier = Modifier.width(markerWidth),
+                        condition = condition,
+                        isCurrentCondition = reading?.condition == condition,
+                        emphasis = emphasis,
+                    )
+                    if (index < WhiteBalanceCondition.entries.lastIndex) {
+                        Spacer(modifier = Modifier.width(gapWidths[index]))
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun WhiteBalanceConditionTrackItem(
+    condition: WhiteBalanceCondition,
+    isCurrentCondition: Boolean,
+    emphasis: Float,
+    modifier: Modifier = Modifier,
+) {
+    val animatedEmphasis by animateFloatAsState(
+        targetValue = emphasis,
+        animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing),
+        label = "whiteBalanceConditionEmphasis",
+    )
+    val contentColor by animateColorAsState(
+        targetValue = if (isCurrentCondition) {
+            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f + animatedEmphasis * 0.5f)
+        } else {
+            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.16f + animatedEmphasis * 0.7f)
+        },
+        label = "whiteBalanceConditionContent",
+    )
+    val scale by animateFloatAsState(
+        targetValue = 0.86f + animatedEmphasis * 0.14f,
+        animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing),
+        label = "whiteBalanceConditionScale",
+    )
+
+    Column(
+        modifier = modifier.graphicsLayer {
+            alpha = 0.22f + animatedEmphasis * 0.78f
+            scaleX = scale
+            scaleY = scale
+        },
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Icon(
+            imageVector = whiteBalanceConditionIcon(condition) ?: Icons.Rounded.WbSunny,
+            contentDescription = null,
+            modifier = Modifier.size(if (isCurrentCondition) 28.dp else 24.dp),
+            tint = contentColor,
+        )
+        Text(
+            text = whiteBalanceConditionLabel(condition),
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = if (isCurrentCondition) FontWeight.SemiBold else FontWeight.Medium,
+            color = contentColor,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center,
+        )
+    }
+}
+
+@Composable
+private fun WhiteBalanceBiasChip(
+    reading: WhiteBalanceReading,
+    modifier: Modifier = Modifier,
+) {
+    val bias = whiteBalanceBias(reading)
+    val accentColor = whiteBalanceBiasColor(bias.direction)
+
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(999.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.78f),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = formatSignedKelvin(bias.deltaKelvin),
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Box(
+                modifier = Modifier
+                    .size(8.dp)
+                    .background(
+                        color = accentColor,
+                        shape = CircleShape,
+                    ),
+            )
+            Text(
+                text = whiteBalanceBiasLabel(bias.direction),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }
@@ -3676,6 +3853,14 @@ private fun formatKelvin(value: Int): String {
     return "${value}K"
 }
 
+private fun formatSignedKelvin(value: Int): String {
+    return if (value > 0) {
+        "+${value}K"
+    } else {
+        "${value}K"
+    }
+}
+
 private fun formatZoomRatio(value: Float): String {
     val roundedWhole = value.roundToInt().toFloat()
     return if (abs(value - roundedWhole) < 0.05f) {
@@ -3797,23 +3982,6 @@ private fun analysisToolIcon(
 }
 
 @Composable
-private fun whiteBalanceToneLabel(kelvin: Int): String {
-    return if (kelvin >= WHITE_BALANCE_COOL_THRESHOLD_KELVIN) {
-        stringResource(R.string.white_balance_tone_cool)
-    } else {
-        stringResource(R.string.white_balance_tone_warm)
-    }
-}
-
-private fun whiteBalanceToneIcon(kelvin: Int): ImageVector {
-    return if (kelvin >= WHITE_BALANCE_COOL_THRESHOLD_KELVIN) {
-        Icons.Rounded.AcUnit
-    } else {
-        Icons.Rounded.WbSunny
-    }
-}
-
-@Composable
 private fun meteringModeLabel(mode: MeteringMode): String {
     return when (mode) {
         MeteringMode.AVERAGE -> stringResource(R.string.metering_mode_average)
@@ -3834,6 +4002,18 @@ private fun whiteBalanceConditionLabel(condition: WhiteBalanceCondition): String
     }
 }
 
+@Composable
+private fun whiteBalanceConditionDescription(condition: WhiteBalanceCondition): String {
+    return when (condition) {
+        WhiteBalanceCondition.CANDLE -> stringResource(R.string.white_balance_condition_candle_description)
+        WhiteBalanceCondition.TUNGSTEN -> stringResource(R.string.white_balance_condition_tungsten_description)
+        WhiteBalanceCondition.FLUORESCENT -> stringResource(R.string.white_balance_condition_fluorescent_description)
+        WhiteBalanceCondition.SUNLIGHT -> stringResource(R.string.white_balance_condition_sunlight_description)
+        WhiteBalanceCondition.CLOUDY -> stringResource(R.string.white_balance_condition_cloudy_description)
+        WhiteBalanceCondition.SHADE -> stringResource(R.string.white_balance_condition_shade_description)
+    }
+}
+
 private fun whiteBalanceConditionIcon(
     condition: WhiteBalanceCondition?,
 ): ImageVector? {
@@ -3846,6 +4026,64 @@ private fun whiteBalanceConditionIcon(
         WhiteBalanceCondition.SHADE -> Icons.Rounded.NightlightRound
         null -> null
     }
+}
+
+@Composable
+private fun whiteBalanceBiasLabel(direction: WhiteBalanceBiasDirection): String {
+    return when (direction) {
+        WhiteBalanceBiasDirection.WARM -> stringResource(R.string.white_balance_bias_warm)
+        WhiteBalanceBiasDirection.COOL -> stringResource(R.string.white_balance_bias_cool)
+        WhiteBalanceBiasDirection.NEUTRAL -> stringResource(R.string.white_balance_bias_neutral)
+    }
+}
+
+private fun whiteBalanceBias(reading: WhiteBalanceReading): WhiteBalanceBiasUiModel {
+    val deltaKelvin = reading.condition.referenceKelvin - reading.kelvin
+    val direction = when {
+        deltaKelvin > 0 -> WhiteBalanceBiasDirection.WARM
+        deltaKelvin < 0 -> WhiteBalanceBiasDirection.COOL
+        else -> WhiteBalanceBiasDirection.NEUTRAL
+    }
+    return WhiteBalanceBiasUiModel(
+        deltaKelvin = deltaKelvin,
+        direction = direction,
+    )
+}
+
+private fun whiteBalanceBiasColor(direction: WhiteBalanceBiasDirection): Color {
+    return when (direction) {
+        WhiteBalanceBiasDirection.WARM -> Color(0xFFE5963B)
+        WhiteBalanceBiasDirection.COOL -> Color(0xFF4A90E2)
+        WhiteBalanceBiasDirection.NEUTRAL -> Color(0xFF9CA3AF)
+    }
+}
+
+private fun whiteBalanceTrackCenterPx(
+    condition: WhiteBalanceCondition,
+    markerWidthPx: Float,
+    gapWidthsPx: List<Float>,
+): Float {
+    var cursorPx = 0f
+    WhiteBalanceCondition.entries.forEachIndexed { index, entry ->
+        if (entry == condition) {
+            return cursorPx + markerWidthPx / 2f
+        }
+        cursorPx += markerWidthPx
+        if (index < gapWidthsPx.size) {
+            cursorPx += gapWidthsPx[index]
+        }
+    }
+    return markerWidthPx / 2f
+}
+
+private fun whiteBalanceTrackEmphasis(
+    itemCenterPx: Float,
+    currentPositionPx: Float,
+    containerWidthPx: Float,
+): Float {
+    val falloffDistancePx = (containerWidthPx * 0.62f).coerceAtLeast(1f)
+    val normalized = 1f - abs(itemCenterPx - currentPositionPx) / falloffDistancePx
+    return normalized.coerceIn(0.08f, 1f)
 }
 
 @Composable
@@ -3938,4 +4176,13 @@ private fun valuesEqual(
 private const val MIN_SHUTTER_SECONDS = 1.0 / 8000.0
 private const val MAX_SHUTTER_SECONDS = 30.0
 private const val PINNED_SUMMARY_VISIBILITY_EPSILON_PX = 1f
-private const val WHITE_BALANCE_COOL_THRESHOLD_KELVIN = 5000
+private data class WhiteBalanceBiasUiModel(
+    val deltaKelvin: Int,
+    val direction: WhiteBalanceBiasDirection,
+)
+
+private enum class WhiteBalanceBiasDirection {
+    WARM,
+    COOL,
+    NEUTRAL,
+}

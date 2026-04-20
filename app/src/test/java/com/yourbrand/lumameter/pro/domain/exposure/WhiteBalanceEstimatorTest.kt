@@ -63,4 +63,14 @@ class WhiteBalanceEstimatorTest {
         assertEquals(WhiteBalanceCondition.CLOUDY, WhiteBalanceCondition.fromKelvin(6200))
         assertEquals(WhiteBalanceCondition.CANDLE, WhiteBalanceCondition.fromKelvin(2200))
     }
+
+    @Test
+    fun `white balance conditions expose stable reference kelvin values`() {
+        assertEquals(2200, WhiteBalanceCondition.CANDLE.referenceKelvin)
+        assertEquals(3000, WhiteBalanceCondition.TUNGSTEN.referenceKelvin)
+        assertEquals(4000, WhiteBalanceCondition.FLUORESCENT.referenceKelvin)
+        assertEquals(5500, WhiteBalanceCondition.SUNLIGHT.referenceKelvin)
+        assertEquals(6500, WhiteBalanceCondition.CLOUDY.referenceKelvin)
+        assertEquals(7500, WhiteBalanceCondition.SHADE.referenceKelvin)
+    }
 }
