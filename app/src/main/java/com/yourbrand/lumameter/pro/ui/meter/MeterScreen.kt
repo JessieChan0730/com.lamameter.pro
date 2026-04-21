@@ -1290,6 +1290,14 @@ private fun WhiteBalanceSection(
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.SemiBold,
                             )
+                            Text(
+                                text = stringResource(
+                                    R.string.white_balance_condition_reference,
+                                    formatKelvin(reading.condition.referenceKelvin),
+                                ),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                         }
                     }
 

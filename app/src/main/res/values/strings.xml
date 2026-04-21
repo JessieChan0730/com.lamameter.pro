@@ -153,11 +153,12 @@
     <string name="white_balance_condition_sunlight">Sunlight</string>
     <string name="white_balance_condition_cloudy">Cloudy</string>
     <string name="white_balance_condition_shade">Shade</string>
+    <string name="white_balance_condition_reference">Reference approx. %1$s</string>
     <string name="white_balance_condition_candle_description">Very warm candlelight for dining scenes, night interiors, and atmospheric close-ups.</string>
     <string name="white_balance_condition_tungsten_description">Warm tungsten lighting suited to homes, cafes, stage practicals, and other indoor scenes.</string>
-    <string name="white_balance_condition_fluorescent_description">Neutral-cool fluorescent light common in offices, classrooms, supermarkets, and studio fill.</string>
-    <string name="white_balance_condition_sunlight_description">Direct sunlight with a balanced daylight look, ideal for outdoor portraits, streets, travel, and product reference shots.</string>
-    <string name="white_balance_condition_cloudy_description">Softer cool daylight for overcast portraits, city walks, landscapes, and gentle skin tones.</string>
+    <string name="white_balance_condition_fluorescent_description">Neutral-cool fluorescent light common in offices, classrooms, supermarkets, and studio fill. Cool white fluorescent is typically around 4200K, while daylight fluorescent often sits near 6500K.</string>
+    <string name="white_balance_condition_sunlight_description">Direct sunlight with a balanced daylight look, typically around 5200K, ideal for outdoor portraits, streets, travel, and product reference shots.</string>
+    <string name="white_balance_condition_cloudy_description">Softer cool daylight, typically around 6000K, for overcast portraits, city walks, landscapes, and gentle skin tones.</string>
     <string name="white_balance_condition_shade_description">Cool ambient shade that works well for backlit subjects, tree cover, alleys, and building shadows.</string>
     <string name="white_balance_bias_warm">Warm ↑</string>
     <string name="white_balance_bias_cool">Cool ↓</string>
