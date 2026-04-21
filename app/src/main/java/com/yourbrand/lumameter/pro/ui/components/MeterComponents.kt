@@ -17,6 +17,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -47,6 +48,7 @@ fun MeterChoiceChip(
     modifier: Modifier = Modifier,
     selected: Boolean = false,
     selectedShadowElevation: Dp = 4.dp,
+    shape: Shape = RoundedCornerShape(14.dp),
     leadingIcon: ImageVector? = null,
     trailingIcon: ImageVector? = null,
     onClick: (() -> Unit)? = null,
@@ -88,7 +90,7 @@ fun MeterChoiceChip(
                 Modifier
             }
         ),
-        shape = RoundedCornerShape(14.dp),
+        shape = shape,
         color = containerColor,
         tonalElevation = tonalElevation,
         shadowElevation = shadowElevation,
