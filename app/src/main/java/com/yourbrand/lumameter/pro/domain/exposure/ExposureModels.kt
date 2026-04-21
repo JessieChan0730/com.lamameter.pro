@@ -146,11 +146,11 @@ enum class WhiteBalanceCondition(
     val referenceKelvin: Int,
 ) {
     CANDLE(referenceKelvin = 2200),
-    TUNGSTEN(referenceKelvin = 3000),
-    FLUORESCENT(referenceKelvin = 4000),
-    SUNLIGHT(referenceKelvin = 5500),
-    CLOUDY(referenceKelvin = 6500),
-    SHADE(referenceKelvin = 7500),
+    TUNGSTEN(referenceKelvin = 3200),
+    FLUORESCENT(referenceKelvin = 4200),
+    SUNLIGHT(referenceKelvin = 5200),
+    CLOUDY(referenceKelvin = 6000),
+    SHADE(referenceKelvin = 7000),
     ;
 
     companion object {

@@ -153,11 +153,12 @@
     <string name="white_balance_condition_sunlight">阳光直射</string>
     <string name="white_balance_condition_cloudy">多云</string>
     <string name="white_balance_condition_shade">阴影</string>
+    <string name="white_balance_condition_reference">理论参考约 %1$s</string>
     <string name="white_balance_condition_candle_description">烛光环境整体更暖，适合餐厅、夜景室内和氛围特写。</string>
     <string name="white_balance_condition_tungsten_description">钨丝灯环境偏暖且稳定，适合家居、咖啡馆、舞台常亮灯等室内场景。</string>
-    <string name="white_balance_condition_fluorescent_description">荧光灯环境偏中性到微冷，常见于办公室、教室、商超和基础布光场景。</string>
-    <string name="white_balance_condition_sunlight_description">阳光直射环境下日光基准较为均衡，适合户外人像、街拍、旅行和产品色彩参考。</string>
-    <string name="white_balance_condition_cloudy_description">多云环境光线更柔和且偏冷，适合阴天人像、城市漫游、风景和肤色过渡。</string>
+    <string name="white_balance_condition_fluorescent_description">荧光灯环境偏中性到微冷，冷白色荧光灯理论参考约 4200K，日光型荧光灯常见约 6500K，常见于办公室、教室、商超和基础布光场景。</string>
+    <string name="white_balance_condition_sunlight_description">阳光直射环境下日光基准较为均衡，理论参考约 5200K，适合户外人像、街拍、旅行和产品色彩参考。</string>
+    <string name="white_balance_condition_cloudy_description">多云环境光线更柔和且偏冷，理论参考约 6000K，适合阴天人像、城市漫游、风景和肤色过渡。</string>
     <string name="white_balance_condition_shade_description">阴影环境综合色温更冷，适合逆光主体、树荫、巷道和建筑投影区域。</string>
     <string name="white_balance_bias_warm">偏暖 ↑</string>
     <string name="white_balance_bias_cool">偏冷 ↓</string>
