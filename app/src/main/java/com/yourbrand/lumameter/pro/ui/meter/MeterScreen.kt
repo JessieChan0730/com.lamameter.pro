@@ -841,8 +841,14 @@ private fun StatusRow(
             val reading = uiState.liveReading
             if (reading != null) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    MeterChoiceChip(label = "L ${formatLuma(reading.meteredLuma)}")
-                    MeterChoiceChip(label = "AVG ${formatLuma(reading.averageLuma)}")
+                    MeterChoiceChip(
+                        label = "L ${formatLuma(reading.meteredLuma)}",
+                        shape = RoundedCornerShape(999.dp),
+                    )
+                    MeterChoiceChip(
+                        label = "AVG ${formatLuma(reading.averageLuma)}",
+                        shape = RoundedCornerShape(999.dp),
+                    )
                 }
             }
         } else {
