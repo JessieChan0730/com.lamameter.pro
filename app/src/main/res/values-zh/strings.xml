@@ -52,8 +52,8 @@
     <string name="state_off">未开启</string>
     <string name="settings_title">设置</string>
     <string name="settings_metering_title">测光方式</string>
-    <string name="settings_live_metering">实时测光</string>
-    <string name="settings_live_metering_description">预览运行时持续更新曝光数值。</string>
+    <string name="settings_live_metering">实时分析</string>
+    <string name="settings_live_metering_description">应用运行时，持续检测曝光参数和白平衡</string>
     <string name="settings_single_metering_description">关闭实时刷新，点击取景画面进行一次测光并保留结果。</string>
     <string name="settings_preview_title">取景</string>
     <string name="settings_viewfinder_ratio">取景框比例</string>

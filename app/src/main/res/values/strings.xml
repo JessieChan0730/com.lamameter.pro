@@ -52,8 +52,8 @@
     <string name="state_off">Off</string>
     <string name="settings_title">Settings</string>
     <string name="settings_metering_title">Metering</string>
-    <string name="settings_live_metering">Real-time metering</string>
-    <string name="settings_live_metering_description">Continuously updates exposure values while the preview is running.</string>
+    <string name="settings_live_metering">Real-time analysis</string>
+    <string name="settings_live_metering_description">Continuously updates exposure readings and white balance analysis while the preview is running.</string>
     <string name="settings_single_metering_description">Turns off live updates. Tap the preview to meter once and keep that reading.</string>
     <string name="settings_preview_title">Preview</string>
     <string name="settings_viewfinder_ratio">Viewfinder ratio</string>
