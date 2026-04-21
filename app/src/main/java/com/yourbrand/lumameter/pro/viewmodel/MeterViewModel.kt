@@ -232,11 +232,13 @@ class MeterViewModel(
             lockedBaseEv100 = null
         }
         _uiState.update { current ->
+            val shouldCaptureInitialReading = !enabled && current.liveReading == null
             buildState(
                 current.copy(
                     isLiveMeteringEnabled = enabled,
-                    isManualMeterPending = false,
+                    isManualMeterPending = shouldCaptureInitialReading,
                     isAeLocked = if (enabled) current.isAeLocked else false,
+                    cameraError = if (shouldCaptureInitialReading) null else current.cameraError,
                 ),
                 activeBaseEv100(),
             )

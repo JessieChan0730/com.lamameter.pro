@@ -47,7 +47,10 @@ import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -1312,61 +1315,71 @@ private fun WhiteBalanceConditionTrack(
     BoxWithConstraints(
         modifier = modifier.padding(start = 4.dp, top = 6.dp, end = 4.dp, bottom = 0.dp),
     ) {
-        val itemCount = WhiteBalanceCondition.entries.size
+        val conditions = WhiteBalanceCondition.entries
+        val itemCount = conditions.size
         val itemGap = 8.dp
         val totalGap = itemGap * (itemCount - 1)
         val markerWidth = ((maxWidth - totalGap) / itemCount).coerceIn(60.dp, 80.dp)
-        val gapWidths = remember(itemGap) {
-            List(itemCount - 1) { itemGap }
+        val edgePadding = ((maxWidth - markerWidth) / 2f).coerceAtLeast(0.dp)
+        val listState = rememberLazyListState()
+        val selectedIndex = remember(selectedCondition) {
+            conditions.indexOf(selectedCondition).coerceAtLeast(0)
         }
         val containerWidthPx = with(density) { maxWidth.toPx() }
         val markerWidthPx = with(density) { markerWidth.toPx() }
-        val gapWidthsPx = gapWidths.map { gap -> with(density) { gap.toPx() } }
-        val selectedTrackCenterPx = remember(selectedCondition, markerWidthPx, gapWidthsPx) {
+        val itemGapPx = with(density) { itemGap.toPx() }
+        val selectedTrackCenterPx = remember(selectedIndex, markerWidthPx, itemGapPx) {
             whiteBalanceTrackCenterPx(
-                condition = selectedCondition,
+                index = selectedIndex,
                 markerWidthPx = markerWidthPx,
-                gapWidthsPx = gapWidthsPx,
+                itemGapPx = itemGapPx,
             )
         }
-        val translationX by animateFloatAsState(
-            targetValue = containerWidthPx / 2f - selectedTrackCenterPx,
-            animationSpec = tween(durationMillis = 450, easing = FastOutSlowInEasing),
-            label = "whiteBalanceTrackTranslation",
-        )
+
+        LaunchedEffect(selectedIndex, maxWidth, markerWidth) {
+            listState.animateScrollToItem(index = selectedIndex)
+        }
 
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(75.dp)
+                .height(86.dp)
                 .clipToBounds(),
         ) {
             Box(
                 modifier = Modifier
-                    .align(Alignment.TopCenter)
+                    .align(Alignment.BottomCenter)
                     .width(2.dp)
                     .height(8.dp)
-                    .offset(y = 66.dp)
+                    .padding(bottom = 2.dp)
                     .background(
                         color = MaterialTheme.colorScheme.primary.copy(alpha = 0.68f),
                         shape = CircleShape,
                     ),
             )
-            Row(
+            LazyRow(
                 modifier = Modifier
                     .align(Alignment.TopStart)
-                    .offset(y = 6.dp)
-                    .graphicsLayer {
-                        this.translationX = translationX
-                    },
-                verticalAlignment = Alignment.Top,
+                    .fillMaxWidth(),
+                state = listState,
+                userScrollEnabled = false,
+                horizontalArrangement = Arrangement.spacedBy(itemGap),
+                contentPadding = PaddingValues(
+                    start = edgePadding,
+                    top = 6.dp,
+                    end = edgePadding,
+                    bottom = 8.dp,
+                ),
             ) {
-                WhiteBalanceCondition.entries.forEachIndexed { index, condition ->
+                itemsIndexed(
+                    items = conditions,
+                    key = { _, condition -> condition.name },
+                ) { index, condition ->
                     val emphasis = whiteBalanceTrackEmphasis(
                         itemCenterPx = whiteBalanceTrackCenterPx(
-                            condition = condition,
+                            index = index,
                             markerWidthPx = markerWidthPx,
-                            gapWidthsPx = gapWidthsPx,
+                            itemGapPx = itemGapPx,
                         ),
                         currentPositionPx = selectedTrackCenterPx,
                         containerWidthPx = containerWidthPx,
@@ -1377,9 +1390,6 @@ private fun WhiteBalanceConditionTrack(
                         isCurrentCondition = reading?.condition == condition,
                         emphasis = emphasis,
                     )
-                    if (index < WhiteBalanceCondition.entries.lastIndex) {
-                        Spacer(modifier = Modifier.width(gapWidths[index]))
-                    }
                 }
             }
         }
@@ -4059,21 +4069,11 @@ private fun whiteBalanceBiasColor(direction: WhiteBalanceBiasDirection): Color {
 }
 
 private fun whiteBalanceTrackCenterPx(
-    condition: WhiteBalanceCondition,
+    index: Int,
     markerWidthPx: Float,
-    gapWidthsPx: List<Float>,
+    itemGapPx: Float,
 ): Float {
-    var cursorPx = 0f
-    WhiteBalanceCondition.entries.forEachIndexed { index, entry ->
-        if (entry == condition) {
-            return cursorPx + markerWidthPx / 2f
-        }
-        cursorPx += markerWidthPx
-        if (index < gapWidthsPx.size) {
-            cursorPx += gapWidthsPx[index]
-        }
-    }
-    return markerWidthPx / 2f
+    return index * (markerWidthPx + itemGapPx) + markerWidthPx / 2f
 }
 
 private fun whiteBalanceTrackEmphasis(

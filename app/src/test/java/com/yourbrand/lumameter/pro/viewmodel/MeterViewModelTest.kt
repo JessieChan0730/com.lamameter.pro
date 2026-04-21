@@ -131,23 +131,49 @@ class MeterViewModelTest {
     }
 
     @Test
-    fun `single metering mode only captures after explicit request`() {
+    fun `single metering mode auto captures the first frame and later requires explicit requests`() {
         val viewModel = MeterViewModel()
         val firstReading = sampleReading(meteredLuma = 60.0)
         val secondReading = sampleReading(meteredLuma = 180.0)
+        val thirdReading = sampleReading(meteredLuma = 240.0)
 
         viewModel.setLiveMeteringEnabled(false)
+        assertTrue(viewModel.uiState.value.isManualMeterPending)
+
         viewModel.onFrameAnalyzed(firstReading)
 
-        assertNull(viewModel.uiState.value.liveReading)
+        var state = viewModel.uiState.value
+        assertFalse(state.isLiveMeteringEnabled)
+        assertFalse(state.isManualMeterPending)
+        assertEquals(firstReading, state.liveReading)
+
+        viewModel.onFrameAnalyzed(secondReading)
+        assertEquals(firstReading, viewModel.uiState.value.liveReading)
 
         viewModel.requestManualMetering()
+        assertTrue(viewModel.uiState.value.isManualMeterPending)
+        viewModel.onFrameAnalyzed(thirdReading)
+
+        state = viewModel.uiState.value
+        assertFalse(state.isLiveMeteringEnabled)
+        assertFalse(state.isManualMeterPending)
+        assertEquals(thirdReading, state.liveReading)
+    }
+
+    @Test
+    fun `disabling live metering after a reading keeps the current sample and does not queue another`() {
+        val viewModel = MeterViewModel()
+        val firstReading = sampleReading(meteredLuma = 90.0)
+        val secondReading = sampleReading(meteredLuma = 200.0)
+
+        viewModel.onFrameAnalyzed(firstReading)
+        viewModel.setLiveMeteringEnabled(false)
         viewModel.onFrameAnalyzed(secondReading)
 
         val state = viewModel.uiState.value
         assertFalse(state.isLiveMeteringEnabled)
         assertFalse(state.isManualMeterPending)
-        assertEquals(secondReading, state.liveReading)
+        assertEquals(firstReading, state.liveReading)
     }
 
     @Test
