@@ -9,7 +9,11 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.hardware.camera2.CameraCharacteristics
 import androidx.camera.camera2.interop.Camera2Interop
+import androidx.camera.camera2.interop.Camera2CameraControl
+import androidx.camera.camera2.interop.Camera2CameraInfo
+import androidx.camera.camera2.interop.CaptureRequestOptions
 import androidx.camera.core.AspectRatio
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
@@ -47,6 +51,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.yourbrand.lumameter.pro.R
 import com.yourbrand.lumameter.pro.data.camera.LuminanceAnalyzer
+import com.yourbrand.lumameter.pro.domain.exposure.AnalysisTool
 import com.yourbrand.lumameter.pro.domain.exposure.FrameExposureMetadata
 import com.yourbrand.lumameter.pro.domain.exposure.LuminanceReading
 import com.yourbrand.lumameter.pro.domain.exposure.MeteringMode
@@ -61,12 +66,14 @@ import kotlin.math.abs
 @Composable
 fun MeterCameraPreview(
     modifier: Modifier = Modifier,
+    analysisTool: AnalysisTool,
     meteringMode: MeteringMode,
     meteringPoint: MeteringPoint,
     hasCustomSpotMeteringPoint: Boolean,
     viewfinderAspectRatio: ViewfinderAspectRatio,
     isAeLocked: Boolean,
     requestedZoomRatio: Float,
+    requestedManualFocusSliderPosition: Float,
     enableSpotMetering: Boolean,
     showMeteringReticle: Boolean,
     showGuideGrid: Boolean,
@@ -75,6 +82,7 @@ fun MeterCameraPreview(
     onPreviewTapped: () -> Unit,
     onReadingAvailable: (LuminanceReading) -> Unit,
     onZoomCapabilityResolved: (Float, Float) -> Unit,
+    onManualFocusCapabilityResolved: (Boolean, Float) -> Unit,
     onZoomRatioApplied: (Float) -> Unit,
     onCameraError: (String) -> Unit,
 ) {
@@ -82,6 +90,7 @@ fun MeterCameraPreview(
     val lifecycleOwner = LocalLifecycleOwner.current
     val cameraStartErrorMsg = stringResource(R.string.failed_to_start_camera)
     val zoomErrorMsg = stringResource(R.string.failed_to_adjust_zoom)
+    val focusErrorMsg = stringResource(R.string.failed_to_adjust_focus)
 
     val previewView = remember(context) {
         PreviewView(context).apply {
@@ -93,15 +102,22 @@ fun MeterCameraPreview(
     val currentMeteringMode by rememberUpdatedState(meteringMode)
     val currentMeteringPoint by rememberUpdatedState(meteringPoint)
     val currentViewfinderAspectRatio by rememberUpdatedState(viewfinderAspectRatio)
+    val currentAnalysisTool by rememberUpdatedState(analysisTool)
     val currentEnableSpotMetering by rememberUpdatedState(enableSpotMetering)
     val currentReadingCallback by rememberUpdatedState(onReadingAvailable)
     val currentRequestedZoomRatio by rememberUpdatedState(requestedZoomRatio)
+    val currentRequestedManualFocusSliderPosition by rememberUpdatedState(requestedManualFocusSliderPosition)
     val currentZoomCapabilityCallback by rememberUpdatedState(onZoomCapabilityResolved)
+    val currentManualFocusCapabilityCallback by rememberUpdatedState(onManualFocusCapabilityResolved)
     val currentZoomRatioCallback by rememberUpdatedState(onZoomRatioApplied)
     val currentErrorCallback by rememberUpdatedState(onCameraError)
     var boundCamera by remember { mutableStateOf<Camera?>(null) }
     var lastAppliedZoomRatio by remember { mutableStateOf<Float?>(null) }
     var latestZoomRequestToken by remember { mutableStateOf(0) }
+    var focusCapability by remember { mutableStateOf(ManualFocusCapability()) }
+    var lastAppliedManualFocusSliderPosition by remember { mutableStateOf<Float?>(null) }
+    var areManualFocusOptionsActive by remember { mutableStateOf(false) }
+    var latestManualFocusRequestToken by remember { mutableStateOf(0) }
 
     DisposableEffect(lifecycleOwner, previewView) {
         val analyzerExecutor = Executors.newSingleThreadExecutor()
@@ -183,6 +199,13 @@ fun MeterCameraPreview(
                 val maxZoomRatio = zoomState?.maxZoomRatio ?: DEFAULT_ZOOM_RATIO
                 currentZoomCapabilityCallback(minZoomRatio, maxZoomRatio)
 
+                val resolvedFocusCapability = resolveManualFocusCapability(camera)
+                focusCapability = resolvedFocusCapability
+                currentManualFocusCapabilityCallback(
+                    resolvedFocusCapability.isSupported,
+                    resolvedFocusCapability.minimumFocusDistanceDiopters,
+                )
+
                 val safeZoomRatio = currentRequestedZoomRatio.coerceIn(minZoomRatio, maxZoomRatio)
                 lastAppliedZoomRatio = safeZoomRatio
                 latestZoomRequestToken += 1
@@ -203,6 +226,8 @@ fun MeterCameraPreview(
                 )
             }.onFailure { _ ->
                 boundCamera = null
+                focusCapability = ManualFocusCapability()
+                currentManualFocusCapabilityCallback(false, 0f)
                 currentErrorCallback(cameraStartErrorMsg)
             }
         }
@@ -214,8 +239,12 @@ fun MeterCameraPreview(
 
         onDispose {
             boundCamera = null
+            focusCapability = ManualFocusCapability()
             lastAppliedZoomRatio = null
             latestZoomRequestToken += 1
+            lastAppliedManualFocusSliderPosition = null
+            areManualFocusOptionsActive = false
+            latestManualFocusRequestToken += 1
             cameraProvider?.unbindAll()
             analyzerExecutor.shutdown()
         }
@@ -245,6 +274,70 @@ fun MeterCameraPreview(
             onZoomRequestFailed = {
                 if (zoomRequestToken == latestZoomRequestToken) {
                     lastAppliedZoomRatio = null
+                }
+            },
+            onCameraError = currentErrorCallback,
+        )
+    }
+
+    LaunchedEffect(boundCamera, analysisTool, requestedManualFocusSliderPosition, focusCapability) {
+        val camera = boundCamera ?: return@LaunchedEffect
+        val isManualFocusEnabled = currentAnalysisTool == AnalysisTool.FOCUS &&
+            focusCapability.isSupported
+
+        if (!isManualFocusEnabled) {
+            if (!areManualFocusOptionsActive) {
+                return@LaunchedEffect
+            }
+
+            latestManualFocusRequestToken += 1
+            val focusRequestToken = latestManualFocusRequestToken
+            clearManualFocus(
+                camera = camera,
+                context = context,
+                focusErrorMessage = focusErrorMsg,
+                isLatestRequest = { focusRequestToken == latestManualFocusRequestToken },
+                onFocusCleared = {
+                    areManualFocusOptionsActive = false
+                    lastAppliedManualFocusSliderPosition = null
+                },
+                onFocusRequestFailed = {
+                    if (focusRequestToken == latestManualFocusRequestToken) {
+                        areManualFocusOptionsActive = false
+                        lastAppliedManualFocusSliderPosition = null
+                    }
+                },
+                onCameraError = currentErrorCallback,
+            )
+            return@LaunchedEffect
+        }
+
+        val safeSliderPosition = currentRequestedManualFocusSliderPosition.coerceIn(0f, 1f)
+        if (
+            areManualFocusOptionsActive &&
+            lastAppliedManualFocusSliderPosition != null &&
+            abs(lastAppliedManualFocusSliderPosition!! - safeSliderPosition) < FOCUS_UPDATE_EPSILON
+        ) {
+            return@LaunchedEffect
+        }
+
+        val focusDistanceDiopters = focusCapability.minimumFocusDistanceDiopters * (1f - safeSliderPosition)
+        lastAppliedManualFocusSliderPosition = safeSliderPosition
+        latestManualFocusRequestToken += 1
+        val focusRequestToken = latestManualFocusRequestToken
+        applyManualFocus(
+            camera = camera,
+            focusDistanceDiopters = focusDistanceDiopters,
+            context = context,
+            focusErrorMessage = focusErrorMsg,
+            isLatestRequest = { focusRequestToken == latestManualFocusRequestToken },
+            onFocusApplied = {
+                areManualFocusOptionsActive = true
+            },
+            onFocusRequestFailed = {
+                if (focusRequestToken == latestManualFocusRequestToken) {
+                    lastAppliedManualFocusSliderPosition = null
+                    areManualFocusOptionsActive = false
                 }
             },
             onCameraError = currentErrorCallback,
@@ -309,6 +402,24 @@ internal fun resolveDisplayedReticlePoint(
     }
 }
 
+private fun resolveManualFocusCapability(camera: Camera): ManualFocusCapability {
+    val camera2Info = Camera2CameraInfo.from(camera.cameraInfo)
+    val minimumFocusDistanceDiopters = camera2Info
+        .getCameraCharacteristic(CameraCharacteristics.LENS_INFO_MINIMUM_FOCUS_DISTANCE)
+        ?.coerceAtLeast(0f)
+        ?: 0f
+    val availableAfModes = camera2Info
+        .getCameraCharacteristic(CameraCharacteristics.CONTROL_AF_AVAILABLE_MODES)
+        ?: intArrayOf()
+    val supportsManualFocus = availableAfModes.contains(CaptureRequest.CONTROL_AF_MODE_OFF) &&
+        minimumFocusDistanceDiopters > MANUAL_FOCUS_DISTANCE_EPSILON
+
+    return ManualFocusCapability(
+        isSupported = supportsManualFocus,
+        minimumFocusDistanceDiopters = minimumFocusDistanceDiopters,
+    )
+}
+
 private fun applyZoomRatio(
     camera: Camera,
     zoomRatio: Float,
@@ -330,7 +441,7 @@ private fun applyZoomRatio(
                 val appliedZoomRatio = camera.cameraInfo.zoomState.value?.zoomRatio ?: zoomRatio
                 onZoomRatioApplied(appliedZoomRatio)
             }.onFailure { throwable ->
-                if (throwable.isZoomRequestCancellation()) {
+                if (throwable.isCameraRequestCancellation()) {
                     return@onFailure
                 }
                 onZoomRequestFailed()
@@ -341,7 +452,76 @@ private fun applyZoomRatio(
     )
 }
 
-private fun Throwable.isZoomRequestCancellation(): Boolean {
+private fun applyManualFocus(
+    camera: Camera,
+    focusDistanceDiopters: Float,
+    context: Context,
+    focusErrorMessage: String,
+    isLatestRequest: () -> Boolean,
+    onFocusApplied: () -> Unit,
+    onFocusRequestFailed: () -> Unit,
+    onCameraError: (String) -> Unit,
+) {
+    val camera2Control = Camera2CameraControl.from(camera.cameraControl)
+    val focusOptions = CaptureRequestOptions.Builder()
+        .setCaptureRequestOption(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_OFF)
+        .setCaptureRequestOption(CaptureRequest.LENS_FOCUS_DISTANCE, focusDistanceDiopters.coerceAtLeast(0f))
+        .build()
+    val focusOperation = camera2Control.setCaptureRequestOptions(focusOptions)
+
+    focusOperation.addListener(
+        {
+            if (!isLatestRequest()) {
+                return@addListener
+            }
+            runCatching {
+                focusOperation.get()
+                onFocusApplied()
+            }.onFailure { throwable ->
+                if (throwable.isCameraRequestCancellation()) {
+                    return@onFailure
+                }
+                onFocusRequestFailed()
+                onCameraError(focusErrorMessage)
+            }
+        },
+        ContextCompat.getMainExecutor(context),
+    )
+}
+
+private fun clearManualFocus(
+    camera: Camera,
+    context: Context,
+    focusErrorMessage: String,
+    isLatestRequest: () -> Boolean,
+    onFocusCleared: () -> Unit,
+    onFocusRequestFailed: () -> Unit,
+    onCameraError: (String) -> Unit,
+) {
+    val camera2Control = Camera2CameraControl.from(camera.cameraControl)
+    val clearOperation = camera2Control.clearCaptureRequestOptions()
+
+    clearOperation.addListener(
+        {
+            if (!isLatestRequest()) {
+                return@addListener
+            }
+            runCatching {
+                clearOperation.get()
+                onFocusCleared()
+            }.onFailure { throwable ->
+                if (throwable.isCameraRequestCancellation()) {
+                    return@onFailure
+                }
+                onFocusRequestFailed()
+                onCameraError(focusErrorMessage)
+            }
+        },
+        ContextCompat.getMainExecutor(context),
+    )
+}
+
+private fun Throwable.isCameraRequestCancellation(): Boolean {
     var current: Throwable? = this
     while (current != null) {
         if (current is CancellationException || current.javaClass.simpleName == "OperationCanceledException") {
@@ -609,6 +789,8 @@ private fun LevelIndicatorOverlay(
 
 private const val DEFAULT_ZOOM_RATIO = 1f
 private const val ZOOM_UPDATE_EPSILON = 0.01f
+private const val FOCUS_UPDATE_EPSILON = 0.01f
+private const val MANUAL_FOCUS_DISTANCE_EPSILON = 0.001f
 private const val GUIDE_GRID_ALPHA = 0.42f
 private const val RETICLE_ALPHA = 0.78f
 private const val LEVEL_SMOOTHING_FACTOR = 0.75f
@@ -618,3 +800,8 @@ private val LEVEL_COLOR_ALIGNED = Color(0xFF4CAF50).copy(alpha = 0.72f)
 private val LEVEL_COLOR_DEFAULT = Color(0xFFB5B5B5).copy(alpha = 0.50f)
 private val LEVEL_STROKE_WIDTH = 1.5.dp
 private val LEVEL_CENTER_GAP_HALF = 14.dp
+
+private data class ManualFocusCapability(
+    val isSupported: Boolean = false,
+    val minimumFocusDistanceDiopters: Float = 0f,
+)

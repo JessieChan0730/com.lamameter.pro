@@ -658,6 +658,49 @@ class MeterViewModelTest {
         assertEquals(AnalysisTool.METER, lastSettings?.analysisTool)
     }
 
+    @Test
+    fun `manual focus slider persists through initial settings and updates`() {
+        var lastSettings: PersistedMeterSettings? = null
+        val viewModel = MeterViewModel(
+            initialSettings = PersistedMeterSettings(
+                manualFocusSliderPosition = 0.25f,
+            ),
+            onSettingsChanged = { lastSettings = it },
+        )
+
+        assertEquals(0.25f, viewModel.uiState.value.manualFocusSliderPosition, 0.0001f)
+
+        viewModel.setManualFocusSliderPosition(0.8f)
+
+        assertEquals(0.8f, viewModel.uiState.value.manualFocusSliderPosition, 0.0001f)
+        assertEquals(0.8f, requireNotNull(lastSettings).manualFocusSliderPosition, 0.0001f)
+    }
+
+    @Test
+    fun `manual focus slider clamps to supported range`() {
+        val viewModel = MeterViewModel()
+
+        viewModel.setManualFocusSliderPosition(-2f)
+        assertEquals(0f, viewModel.uiState.value.manualFocusSliderPosition, 0.0001f)
+
+        viewModel.setManualFocusSliderPosition(3f)
+        assertEquals(1f, viewModel.uiState.value.manualFocusSliderPosition, 0.0001f)
+    }
+
+    @Test
+    fun `manual focus capability reflects camera support`() {
+        val viewModel = MeterViewModel()
+
+        viewModel.updateManualFocusCapability(
+            isSupported = true,
+            minimumFocusDistanceDiopters = 8f,
+        )
+
+        val state = viewModel.uiState.value
+        assertTrue(state.isManualFocusSupported)
+        assertEquals(8f, state.minimumFocusDistanceDiopters, 0.0001f)
+    }
+
     private fun sampleReading(meteredLuma: Double): LuminanceReading {
         return LuminanceReading(
             meteredLuma = meteredLuma,

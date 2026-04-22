@@ -22,6 +22,7 @@ private const val DEFAULT_ZOOM_RATIO = 1f
 private const val MIN_ZOOM_RATIO = 0.1f
 private const val ZOOM_CAPABILITY_EPSILON = 0.01f
 private const val ZOOM_PRESET_SELECTION_EPSILON = 0.05f
+private const val DEFAULT_MANUAL_FOCUS_SLIDER_POSITION = 1f
 private val ZOOM_PRESET_RATIOS = listOf(0.5f, 1f, 2f, 4f, 8f)
 
 object MeterDefaults {
@@ -63,6 +64,7 @@ data class PersistedMeterSettings(
     val calibrationPresets: List<CalibrationPreset> = emptyList(),
     val activeCalibrationPresetId: String? = null,
     val selectedNdFilter: Int = 1,
+    val manualFocusSliderPosition: Float = DEFAULT_MANUAL_FOCUS_SLIDER_POSITION,
 )
 
 enum class MeterStatus {
@@ -113,6 +115,9 @@ data class MeterUiState(
     val maxZoomRatio: Float = DEFAULT_ZOOM_RATIO,
     val isZoomSupported: Boolean = false,
     val zoomPresets: List<ZoomPresetUiModel> = emptyList(),
+    val manualFocusSliderPosition: Float = DEFAULT_MANUAL_FOCUS_SLIDER_POSITION,
+    val isManualFocusSupported: Boolean = false,
+    val minimumFocusDistanceDiopters: Float = 0f,
 )
 
 class MeterViewModel(
@@ -137,6 +142,7 @@ class MeterViewModel(
             calibrationOffsetEv = initialSettings.calibrationOffsetEv,
             calibrationPresets = initialSettings.calibrationPresets,
             activeCalibrationPresetId = initialSettings.activeCalibrationPresetId,
+            manualFocusSliderPosition = initialSettings.manualFocusSliderPosition.coerceIn(0f, 1f),
         )
     )
     val uiState: StateFlow<MeterUiState> = _uiState.asStateFlow()
@@ -225,6 +231,27 @@ class MeterViewModel(
                 zoomRatio = zoomRatio,
             )
         }
+    }
+
+    fun updateManualFocusCapability(
+        isSupported: Boolean,
+        minimumFocusDistanceDiopters: Float,
+    ) {
+        _uiState.update { current ->
+            current.copy(
+                isManualFocusSupported = isSupported,
+                minimumFocusDistanceDiopters = minimumFocusDistanceDiopters.coerceAtLeast(0f),
+            )
+        }
+    }
+
+    fun setManualFocusSliderPosition(position: Float) {
+        _uiState.update { current ->
+            current.copy(
+                manualFocusSliderPosition = position.coerceIn(0f, 1f),
+            )
+        }
+        notifySettingsChanged()
     }
 
     fun setLiveMeteringEnabled(enabled: Boolean) {
@@ -590,6 +617,7 @@ class MeterViewModel(
                 calibrationPresets = state.calibrationPresets,
                 activeCalibrationPresetId = state.activeCalibrationPresetId,
                 selectedNdFilter = state.selectedNdFilter,
+                manualFocusSliderPosition = state.manualFocusSliderPosition,
             )
         )
     }

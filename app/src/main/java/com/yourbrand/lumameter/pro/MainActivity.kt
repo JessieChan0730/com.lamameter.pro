@@ -147,6 +147,10 @@ class MainActivity : ComponentActivity() {
                         KEY_SELECTED_ND_FILTER,
                         1,
                     ),
+                    manualFocusSliderPosition = preferences.getFloat(
+                        KEY_MANUAL_FOCUS_SLIDER_POSITION,
+                        PersistedMeterSettings().manualFocusSliderPosition,
+                    ),
                 )
             }
 
@@ -181,6 +185,7 @@ class MainActivity : ComponentActivity() {
                             .putString(KEY_CALIBRATION_PRESETS, serializeCalibrationPresets(settings.calibrationPresets))
                             .putString(KEY_ACTIVE_CALIBRATION_PRESET, settings.activeCalibrationPresetId)
                             .putInt(KEY_SELECTED_ND_FILTER, settings.selectedNdFilter)
+                            .putFloat(KEY_MANUAL_FOCUS_SLIDER_POSITION, settings.manualFocusSliderPosition)
                             .apply()
                     },
                 )
@@ -210,6 +215,7 @@ class MainActivity : ComponentActivity() {
         const val KEY_CALIBRATION_PRESETS = "calibration_presets"
         const val KEY_ACTIVE_CALIBRATION_PRESET = "active_calibration_preset"
         const val KEY_SELECTED_ND_FILTER = "selected_nd_filter"
+        const val KEY_MANUAL_FOCUS_SLIDER_POSITION = "manual_focus_slider_position"
 
         fun parseDoubleList(raw: String?): List<Double> {
             if (raw.isNullOrBlank()) return emptyList()

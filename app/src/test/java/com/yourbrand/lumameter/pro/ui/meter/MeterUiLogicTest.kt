@@ -98,6 +98,20 @@ class MeterUiLogicTest {
     }
 
     @Test
+    fun `focus hint bands resolve to the expected scene icons`() {
+        assertEquals(FocusSceneHint.INSECT, resolveFocusSceneHint(0.1f))
+        assertEquals(FocusSceneHint.INSECT, resolveFocusSceneHint(0.46f))
+        assertEquals(FocusSceneHint.DINING, resolveFocusSceneHint(0.47f))
+        assertEquals(FocusSceneHint.DINING, resolveFocusSceneHint(0.54f))
+        assertNull(resolveFocusSceneHint(0.8f))
+        assertEquals(FocusSceneHint.PERSON, resolveFocusSceneHint(1.0f))
+        assertEquals(FocusSceneHint.PAIR, resolveFocusSceneHint(1.4f))
+        assertEquals(FocusSceneHint.GROUP, resolveFocusSceneHint(2.1f))
+        assertEquals(FocusSceneHint.MOUNTAIN, resolveFocusSceneHint(5.1f))
+        assertEquals(FocusSceneHint.MOUNTAIN, resolveFocusSceneHint(null))
+    }
+
+    @Test
     fun `shutter formatter renders one second as 1s instead of a fraction`() {
         assertEquals("1s", formatShutter(1.0))
         assertEquals("1s", formatShutter(0.999))

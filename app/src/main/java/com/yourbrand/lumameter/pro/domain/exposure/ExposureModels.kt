@@ -8,6 +8,7 @@ enum class ExposureMode {
 enum class AnalysisTool {
     METER,
     WHITE_BALANCE,
+    FOCUS,
 }
 
 enum class MeteringMode {

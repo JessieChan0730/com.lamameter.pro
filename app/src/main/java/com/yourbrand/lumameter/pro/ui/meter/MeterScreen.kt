@@ -62,6 +62,7 @@ import androidx.compose.material.icons.rounded.Brightness4
 import androidx.compose.material.icons.rounded.Brightness6
 import androidx.compose.material.icons.rounded.BrightnessAuto
 import androidx.compose.material.icons.rounded.CameraAlt
+import androidx.compose.material.icons.rounded.CenterFocusStrong
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Cloud
 import androidx.compose.material.icons.rounded.Close
@@ -79,7 +80,13 @@ import androidx.compose.material.icons.rounded.LockOpen
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.NightlightRound
 import androidx.compose.material.icons.rounded.PhotoCamera
+import androidx.compose.material.icons.rounded.Groups
+import androidx.compose.material.icons.rounded.Landscape
+import androidx.compose.material.icons.rounded.PeopleAlt
+import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.PestControl
 import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Restaurant
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Straighten
 import androidx.compose.material.icons.rounded.SwapHoriz
@@ -385,7 +392,9 @@ fun MeterRoute(
                 onMeteringModeSelected = viewModel::setMeteringMode,
                 onMeteringPointChanged = viewModel::setMeteringPoint,
                 onZoomCapabilityResolved = viewModel::updateZoomCapability,
+                onManualFocusCapabilityResolved = viewModel::updateManualFocusCapability,
                 onZoomRatioChanged = viewModel::setZoomRatio,
+                onManualFocusSliderChanged = viewModel::setManualFocusSliderPosition,
                 onIsoSelected = viewModel::setIso,
                 onNdFilterSelected = viewModel::setNdFilter,
                 onCompensationChanged = viewModel::setCompensation,
@@ -394,7 +403,11 @@ fun MeterRoute(
                 showHistogram = histogramEnabled,
                 showLevelIndicator = levelIndicatorEnabled,
                 viewfinderAspectRatio = viewfinderAspectRatio,
-                onPreviewTapped = viewModel::requestManualMetering,
+                onPreviewTapped = {
+                    if (uiState.analysisTool != AnalysisTool.FOCUS) {
+                        viewModel.requestManualMetering()
+                    }
+                },
                 onOpenModeSheet = { activeSheet = MeterSheet.EXPOSURE_MODE },
                 onOpenCalibration = { currentPage = MeterPage.CALIBRATION },
                 onOpenApertureLibrary = {
@@ -497,7 +510,9 @@ private fun MeterMainPage(
     onMeteringModeSelected: (MeteringMode) -> Unit,
     onMeteringPointChanged: (MeteringPoint) -> Unit,
     onZoomCapabilityResolved: (Float, Float) -> Unit,
+    onManualFocusCapabilityResolved: (Boolean, Float) -> Unit,
     onZoomRatioChanged: (Float) -> Unit,
+    onManualFocusSliderChanged: (Float) -> Unit,
     onIsoSelected: (Int) -> Unit,
     onNdFilterSelected: (Int) -> Unit,
     onCompensationChanged: (Float) -> Unit,
@@ -597,6 +612,7 @@ private fun MeterMainPage(
                                 onCameraError = onCameraError,
                                 onMeteringPointChanged = onMeteringPointChanged,
                                 onZoomCapabilityResolved = onZoomCapabilityResolved,
+                                onManualFocusCapabilityResolved = onManualFocusCapabilityResolved,
                                 onZoomRatioChanged = onZoomRatioChanged,
                                 showGuideGrid = showGuideGrid,
                                 showHistogram = showHistogram,
@@ -626,8 +642,13 @@ private fun MeterMainPage(
                                     selectedValue = uiState.selectedNdFilter,
                                     onNdFilterSelected = onNdFilterSelected,
                                 )
-                            } else {
+                            } else if (uiState.analysisTool == AnalysisTool.WHITE_BALANCE) {
                                 WhiteBalanceSection(uiState = uiState)
+                            } else {
+                                FocusSection(
+                                    uiState = uiState,
+                                    onManualFocusSliderChanged = onManualFocusSliderChanged,
+                                )
                             }
                         }
                     }
@@ -717,6 +738,7 @@ private fun MainHeader(
     onOpenSettings: () -> Unit,
 ) {
     val whiteBalanceReading = uiState.liveReading?.whiteBalanceReading
+    val isCompactMetricTool = uiState.analysisTool != AnalysisTool.METER
 
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -746,11 +768,9 @@ private fun MainHeader(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            val isWhiteBalanceTool = uiState.analysisTool == AnalysisTool.WHITE_BALANCE
-
             Surface(
-                modifier = if (isWhiteBalanceTool) {
-                    Modifier.width(86.dp)
+                modifier = if (isCompactMetricTool) {
+                    Modifier.width(96.dp)
                 } else {
                     Modifier
                 },
@@ -759,7 +779,7 @@ private fun MainHeader(
                 tonalElevation = 3.dp,
             ) {
                 Column(
-                    modifier = if (isWhiteBalanceTool) {
+                    modifier = if (isCompactMetricTool) {
                         Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 14.dp, vertical = 10.dp)
@@ -771,17 +791,19 @@ private fun MainHeader(
                     Text(
                         text = if (uiState.analysisTool == AnalysisTool.METER) {
                             stringResource(R.string.live_ev_short)
-                        } else {
+                        } else if (uiState.analysisTool == AnalysisTool.WHITE_BALANCE) {
                             stringResource(R.string.white_balance_kelvin_short)
+                        } else {
+                            stringResource(R.string.focus_distance_short)
                         },
-                        modifier = if (isWhiteBalanceTool) {
+                        modifier = if (isCompactMetricTool) {
                             Modifier.fillMaxWidth()
                         } else {
                             Modifier.offset(x = 2.dp)
                         },
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = if (isWhiteBalanceTool) TextAlign.End else TextAlign.Start,
+                        textAlign = if (isCompactMetricTool) TextAlign.End else TextAlign.Start,
                     )
                     if (uiState.analysisTool == AnalysisTool.METER) {
                         Text(
@@ -789,9 +811,18 @@ private fun MainHeader(
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.SemiBold,
                         )
-                    } else {
+                    } else if (uiState.analysisTool == AnalysisTool.WHITE_BALANCE) {
                         Text(
                             text = whiteBalanceReading?.let { formatKelvin(it.kelvin) } ?: "--",
+                            modifier = Modifier.fillMaxWidth(),
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            textAlign = TextAlign.End,
+                        )
+                    } else {
+                        Text(
+                            text = focusDistanceDisplay(uiState),
                             modifier = Modifier.fillMaxWidth(),
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.SemiBold,
@@ -852,8 +883,15 @@ private fun StatusRow(
                 }
             }
         } else {
-            uiState.liveReading?.whiteBalanceReading?.let { reading ->
-                WhiteBalanceBiasChip(reading = reading)
+            if (uiState.analysisTool == AnalysisTool.WHITE_BALANCE) {
+                uiState.liveReading?.whiteBalanceReading?.let { reading ->
+                    WhiteBalanceBiasChip(reading = reading)
+                }
+            } else if (uiState.isManualFocusSupported) {
+                MeterChoiceChip(
+                    label = focusDistanceDisplay(uiState),
+                    shape = RoundedCornerShape(999.dp),
+                )
             }
         }
     }
@@ -1188,6 +1226,7 @@ private fun PreviewSection(
     onCameraError: (String) -> Unit,
     onMeteringPointChanged: (MeteringPoint) -> Unit,
     onZoomCapabilityResolved: (Float, Float) -> Unit,
+    onManualFocusCapabilityResolved: (Boolean, Float) -> Unit,
     onZoomRatioChanged: (Float) -> Unit,
     showGuideGrid: Boolean,
     showHistogram: Boolean,
@@ -1208,6 +1247,7 @@ private fun PreviewSection(
             onCameraError = onCameraError,
             onMeteringPointChanged = onMeteringPointChanged,
             onZoomCapabilityResolved = onZoomCapabilityResolved,
+            onManualFocusCapabilityResolved = onManualFocusCapabilityResolved,
             onZoomRatioChanged = onZoomRatioChanged,
             showGuideGrid = showGuideGrid,
             showHistogram = showHistogram,
@@ -1313,6 +1353,172 @@ private fun WhiteBalanceSection(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun FocusSection(
+    uiState: MeterUiState,
+    onManualFocusSliderChanged: (Float) -> Unit,
+) {
+    val currentFocusDistanceMeters = focusDistanceMeters(requestedManualFocusDiopters(uiState))
+    val sliderColors = SliderDefaults.colors(
+        thumbColor = MaterialTheme.colorScheme.primary,
+        activeTrackColor = MaterialTheme.colorScheme.primary,
+        inactiveTrackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+    )
+    val scaleStops = listOf(
+        SliderScaleStop(
+            value = 0f,
+            label = closestFocusDistanceLabel(uiState.minimumFocusDistanceDiopters),
+        ),
+        SliderScaleStop(
+            value = 1f,
+            label = null,
+        ),
+    )
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.62f),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.CenterFocusStrong,
+                        contentDescription = null,
+                        modifier = Modifier
+                            .padding(12.dp)
+                            .size(24.dp),
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    )
+                }
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    Text(
+                        text = stringResource(R.string.focus_title),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = if (uiState.isManualFocusSupported) {
+                            stringResource(R.string.focus_panel_caption)
+                        } else {
+                            stringResource(R.string.focus_unsupported_body)
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+
+            if (!uiState.isManualFocusSupported) {
+                Text(
+                    text = stringResource(R.string.focus_unsupported_hint),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Bottom,
+                ) {
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                    ) {
+                        Text(
+                            text = stringResource(R.string.focus_current_distance_label),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            text = focusDistanceDisplay(uiState),
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                    Column(
+                        horizontalAlignment = Alignment.End,
+                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                    ) {
+                        Text(
+                            text = stringResource(R.string.focus_closest_distance_label),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            text = closestFocusDistanceLabel(uiState.minimumFocusDistanceDiopters),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                }
+
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Slider(
+                        value = uiState.manualFocusSliderPosition,
+                        onValueChange = onManualFocusSliderChanged,
+                        valueRange = 0f..1f,
+                        colors = sliderColors,
+                        track = { sliderState ->
+                            CompactSliderTrack(
+                                sliderState = sliderState,
+                                colors = sliderColors,
+                            )
+                        },
+                    )
+                    SliderScale(
+                        stops = scaleStops,
+                        valueRange = 0f..1f,
+                        labelWidth = 40.dp,
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Text(
+                            text = stringResource(R.string.focus_near_label),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            text = stringResource(R.string.focus_far_label),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    FocusSceneHintStrip(
+                        currentDistanceMeters = currentFocusDistanceMeters,
+                    )
+                }
+
+                Text(
+                    text = stringResource(R.string.focus_control_hint),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
     }
@@ -1510,6 +1716,7 @@ private fun PreviewCard(
     onCameraError: (String) -> Unit,
     onMeteringPointChanged: (MeteringPoint) -> Unit,
     onZoomCapabilityResolved: (Float, Float) -> Unit,
+    onManualFocusCapabilityResolved: (Boolean, Float) -> Unit,
     onZoomRatioChanged: (Float) -> Unit,
     showGuideGrid: Boolean,
     showHistogram: Boolean,
@@ -1531,12 +1738,14 @@ private fun PreviewCard(
         ) {
             MeterCameraPreview(
                 modifier = Modifier.fillMaxSize(),
+                analysisTool = uiState.analysisTool,
                 meteringMode = uiState.meteringMode,
                 meteringPoint = uiState.meteringPoint,
                 hasCustomSpotMeteringPoint = uiState.hasCustomSpotMeteringPoint,
                 viewfinderAspectRatio = viewfinderAspectRatio,
                 isAeLocked = uiState.isAeLocked,
                 requestedZoomRatio = uiState.zoomRatio,
+                requestedManualFocusSliderPosition = uiState.manualFocusSliderPosition,
                 enableSpotMetering = uiState.analysisTool == AnalysisTool.METER,
                 showMeteringReticle = uiState.analysisTool == AnalysisTool.METER,
                 showGuideGrid = showGuideGrid,
@@ -1545,6 +1754,7 @@ private fun PreviewCard(
                 onPreviewTapped = onPreviewTapped,
                 onReadingAvailable = onReadingAvailable,
                 onZoomCapabilityResolved = onZoomCapabilityResolved,
+                onManualFocusCapabilityResolved = onManualFocusCapabilityResolved,
                 onZoomRatioApplied = onZoomRatioChanged,
                 onCameraError = onCameraError,
             )
@@ -3885,6 +4095,98 @@ private fun formatSignedKelvin(value: Int): String {
     }
 }
 
+@Composable
+private fun FocusSceneHintStrip(
+    currentDistanceMeters: Float?,
+    modifier: Modifier = Modifier,
+) {
+    val activeHint = resolveFocusSceneHint(currentDistanceMeters)
+
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        FocusSceneHint.entries.forEach { hint ->
+            val isActive = activeHint == hint
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = if (isActive) {
+                    MaterialTheme.colorScheme.primaryContainer
+                } else {
+                    MaterialTheme.colorScheme.surface.copy(alpha = 0.72f)
+                },
+            ) {
+                Icon(
+                    imageVector = focusSceneHintIcon(hint),
+                    contentDescription = null,
+                    modifier = Modifier
+                        .padding(horizontal = 10.dp, vertical = 8.dp)
+                        .size(18.dp),
+                    tint = if (isActive) {
+                        MaterialTheme.colorScheme.onPrimaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun focusDistanceDisplay(uiState: MeterUiState): String {
+    if (!uiState.isManualFocusSupported) {
+        return "--"
+    }
+    return formatFocusDistance(
+        focusDistanceMeters(
+            diopters = requestedManualFocusDiopters(uiState),
+        )
+    )
+}
+
+@Composable
+private fun closestFocusDistanceLabel(minimumFocusDistanceDiopters: Float): String {
+    return formatFocusDistance(
+        focusDistanceMeters(
+            diopters = minimumFocusDistanceDiopters,
+        )
+    )
+}
+
+internal enum class FocusSceneHint {
+    INSECT,
+    DINING,
+    PERSON,
+    PAIR,
+    GROUP,
+    MOUNTAIN,
+}
+
+internal fun resolveFocusSceneHint(distanceMeters: Float?): FocusSceneHint? {
+    return when {
+        distanceMeters == null || distanceMeters >= 5.1f -> FocusSceneHint.MOUNTAIN
+        distanceMeters in 2.1f..5.3f -> FocusSceneHint.GROUP
+        distanceMeters in 1.4f..2.2f -> FocusSceneHint.PAIR
+        distanceMeters in 1.0f..<1.4f -> FocusSceneHint.PERSON
+        distanceMeters in 0.47f..0.54f -> FocusSceneHint.DINING
+        distanceMeters in 0.1f..0.46f -> FocusSceneHint.INSECT
+        else -> null
+    }
+}
+
+private fun focusSceneHintIcon(hint: FocusSceneHint): ImageVector {
+    return when (hint) {
+        FocusSceneHint.INSECT -> Icons.Rounded.PestControl
+        FocusSceneHint.DINING -> Icons.Rounded.Restaurant
+        FocusSceneHint.PERSON -> Icons.Rounded.Person
+        FocusSceneHint.PAIR -> Icons.Rounded.PeopleAlt
+        FocusSceneHint.GROUP -> Icons.Rounded.Groups
+        FocusSceneHint.MOUNTAIN -> Icons.Rounded.Landscape
+    }
+}
+
 private fun formatZoomRatio(value: Float): String {
     val roundedWhole = value.roundToInt().toFloat()
     return if (abs(value - roundedWhole) < 0.05f) {
@@ -3993,7 +4295,38 @@ private fun analysisToolLabel(tool: AnalysisTool): String {
     return when (tool) {
         AnalysisTool.METER -> stringResource(R.string.analysis_tool_meter)
         AnalysisTool.WHITE_BALANCE -> stringResource(R.string.analysis_tool_white_balance)
+        AnalysisTool.FOCUS -> stringResource(R.string.analysis_tool_focus)
     }
+}
+
+@Composable
+private fun formatFocusDistance(distanceMeters: Float?): String {
+    return when {
+        distanceMeters == null -> stringResource(R.string.focus_distance_infinity)
+        distanceMeters < 1f -> stringResource(
+            R.string.focus_distance_centimeters,
+            distanceMeters * 100f,
+        )
+        distanceMeters >= 10f -> stringResource(
+            R.string.focus_distance_meters_whole,
+            distanceMeters,
+        )
+        else -> stringResource(
+            R.string.focus_distance_meters_precise,
+            distanceMeters,
+        )
+    }
+}
+
+private fun requestedManualFocusDiopters(uiState: MeterUiState): Float {
+    return uiState.minimumFocusDistanceDiopters * (1f - uiState.manualFocusSliderPosition)
+}
+
+private fun focusDistanceMeters(diopters: Float): Float? {
+    if (diopters <= MANUAL_FOCUS_INFINITY_THRESHOLD_DIOPTERS) {
+        return null
+    }
+    return 1f / diopters
 }
 
 private fun analysisToolIcon(
@@ -4002,6 +4335,7 @@ private fun analysisToolIcon(
     return when (tool) {
         AnalysisTool.METER -> Icons.Rounded.Equalizer
         AnalysisTool.WHITE_BALANCE -> Icons.Rounded.WbSunny
+        AnalysisTool.FOCUS -> Icons.Rounded.CenterFocusStrong
     }
 }
 
@@ -4143,11 +4477,25 @@ private fun whiteBalanceStatusLabel(uiState: MeterUiState): String {
 }
 
 @Composable
-private fun mainStatusLabel(uiState: MeterUiState): String {
-    return if (uiState.analysisTool == AnalysisTool.WHITE_BALANCE) {
-        whiteBalanceStatusLabel(uiState)
+private fun focusStatusLabel(uiState: MeterUiState): String {
+    val cameraError = uiState.cameraError
+    if (cameraError != null) {
+        return cameraError
+    }
+
+    return if (uiState.isManualFocusSupported) {
+        stringResource(R.string.status_manual_focus_ready)
     } else {
-        meterStatusLabel(uiState)
+        stringResource(R.string.status_manual_focus_unsupported)
+    }
+}
+
+@Composable
+private fun mainStatusLabel(uiState: MeterUiState): String {
+    return when (uiState.analysisTool) {
+        AnalysisTool.METER -> meterStatusLabel(uiState)
+        AnalysisTool.WHITE_BALANCE -> whiteBalanceStatusLabel(uiState)
+        AnalysisTool.FOCUS -> focusStatusLabel(uiState)
     }
 }
 
@@ -4171,6 +4519,9 @@ internal fun resolvePreviewTapHint(
             PreviewTapHint.TAP_TO_SAMPLE_WHITE_BALANCE
         }
     }
+    if (analysisTool == AnalysisTool.FOCUS) {
+        return null
+    }
 
     return when {
         !isLiveMeteringEnabled -> PreviewTapHint.TAP_TO_METER_ONCE
@@ -4190,6 +4541,7 @@ private fun valuesEqual(
 private const val MIN_SHUTTER_SECONDS = 1.0 / 8000.0
 private const val MAX_SHUTTER_SECONDS = 30.0
 private const val PINNED_SUMMARY_VISIBILITY_EPSILON_PX = 1f
+private const val MANUAL_FOCUS_INFINITY_THRESHOLD_DIOPTERS = 0.01f
 private data class WhiteBalanceBiasUiModel(
     val deltaKelvin: Int,
     val direction: WhiteBalanceBiasDirection,
