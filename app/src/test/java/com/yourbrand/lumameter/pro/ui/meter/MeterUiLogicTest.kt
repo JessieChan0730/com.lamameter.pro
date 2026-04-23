@@ -3,6 +3,8 @@ package com.yourbrand.lumameter.pro.ui.meter
 import com.yourbrand.lumameter.pro.domain.exposure.AnalysisTool
 import com.yourbrand.lumameter.pro.domain.exposure.MeteringMode
 import com.yourbrand.lumameter.pro.domain.exposure.MeteringPoint
+import com.yourbrand.lumameter.pro.domain.exposure.ReferenceGridType
+import com.yourbrand.lumameter.pro.domain.exposure.ViewfinderAspectRatio
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -47,6 +49,111 @@ class MeterUiLogicTest {
                 hasCustomSpotMeteringPoint = true,
             )
         )
+    }
+
+    @Test
+    fun `thirds guide geometry keeps evenly spaced vertical and horizontal lines`() {
+        val geometry = buildReferenceGuideGeometry(ReferenceGridType.THIRDS)
+        val verticalFractions = geometry.lines
+            .filter { it.start.x == it.end.x }
+            .map { it.start.x }
+            .sorted()
+        val horizontalFractions = geometry.lines
+            .filter { it.start.y == it.end.y }
+            .map { it.start.y }
+            .sorted()
+
+        assertEquals(4, geometry.lines.size)
+        assertTrue(geometry.spiralPoints.isEmpty())
+        assertEquals(1f / 3f, verticalFractions[0], 0.0001f)
+        assertEquals(2f / 3f, verticalFractions[1], 0.0001f)
+        assertEquals(1f / 3f, horizontalFractions[0], 0.0001f)
+        assertEquals(2f / 3f, horizontalFractions[1], 0.0001f)
+    }
+
+    @Test
+    fun `golden spiral guide geometry adds a focus cross over the spiral`() {
+        val geometry = buildReferenceGuideGeometry(ReferenceGridType.GOLDEN_SPIRAL)
+        val expectedFocusPoint = resolveGoldenSpiralFocusPoint(
+            horizontalOffset = calculateHorizontalCenterOffset(
+                points = sampleGoldenSpiralPoints(),
+                additionalOffset = -0.07f,
+            )
+        )
+        val minX = geometry.spiralPoints.minOf { it.x }
+        val maxX = geometry.spiralPoints.maxOf { it.x }
+        val centeredX = (minX + maxX) / 2f
+        val lastPoint = geometry.spiralPoints.last()
+        val verticalGuides = geometry.lines.filter { it.start.x == it.end.x }
+        val horizontalGuides = geometry.lines.filter { it.start.y == it.end.y }
+
+        assertEquals(2, geometry.lines.size)
+        assertTrue(geometry.spiralPoints.size > 100)
+        assertEquals(0.43f, centeredX, 0.0001f)
+        assertEquals(1, verticalGuides.size)
+        assertEquals(1, horizontalGuides.size)
+        assertEquals(expectedFocusPoint.x, verticalGuides.first().start.x, 0.0001f)
+        assertEquals(expectedFocusPoint.x, verticalGuides.first().end.x, 0.0001f)
+        assertEquals(expectedFocusPoint.y, horizontalGuides.first().start.y, 0.0001f)
+        assertEquals(expectedFocusPoint.y, horizontalGuides.first().end.y, 0.0001f)
+        assertEquals(0f, verticalGuides.first().start.y, 0.0001f)
+        assertEquals(1f, verticalGuides.first().end.y, 0.0001f)
+        assertEquals(0f, horizontalGuides.first().start.x, 0.0001f)
+        assertEquals(1f, horizontalGuides.first().end.x, 0.0001f)
+        assertEquals(expectedFocusPoint.y, lastPoint.y, 0.02f)
+        assertTrue(geometry.spiralPoints.any { it.x < 0f || it.x > 1f })
+    }
+
+    @Test
+    fun `golden spiral guide geometry switches to horizontal mode on wide viewfinders`() {
+        val expectedVerticalFocusPoint = resolveGoldenSpiralFocusPoint(
+            horizontalOffset = calculateHorizontalCenterOffset(
+                points = sampleGoldenSpiralPoints(),
+                additionalOffset = -0.07f,
+            )
+        )
+        val expectedHorizontalFocusPoint = MeteringPoint(
+            x = expectedVerticalFocusPoint.y,
+            y = expectedVerticalFocusPoint.x,
+        )
+
+        listOf(
+            ViewfinderAspectRatio.NINE_SIX,
+            ViewfinderAspectRatio.SIXTEEN_NINE,
+        ).forEach { ratio ->
+            val geometry = buildReferenceGuideGeometry(
+                type = ReferenceGridType.GOLDEN_SPIRAL,
+                viewfinderAspectRatio = ratio,
+            )
+            val minY = geometry.spiralPoints.minOf { it.y }
+            val maxY = geometry.spiralPoints.maxOf { it.y }
+            val centeredY = (minY + maxY) / 2f
+            val lastPoint = geometry.spiralPoints.last()
+            val verticalGuides = geometry.lines.filter { it.start.x == it.end.x }
+            val horizontalGuides = geometry.lines.filter { it.start.y == it.end.y }
+
+            assertEquals(2, geometry.lines.size)
+            assertTrue(geometry.spiralPoints.size > 100)
+            assertEquals(0.43f, centeredY, 0.0001f)
+            assertEquals(1, verticalGuides.size)
+            assertEquals(1, horizontalGuides.size)
+            assertEquals(expectedHorizontalFocusPoint.x, verticalGuides.first().start.x, 0.0001f)
+            assertEquals(expectedHorizontalFocusPoint.x, verticalGuides.first().end.x, 0.0001f)
+            assertEquals(expectedHorizontalFocusPoint.y, horizontalGuides.first().start.y, 0.0001f)
+            assertEquals(expectedHorizontalFocusPoint.y, horizontalGuides.first().end.y, 0.0001f)
+            assertEquals(expectedHorizontalFocusPoint.x, lastPoint.x, 0.02f)
+            assertTrue(geometry.spiralPoints.any { it.y < 0f || it.y > 1f })
+        }
+    }
+
+    @Test
+    fun `diagonal guide geometry draws one line from top left to bottom right`() {
+        val geometry = buildReferenceGuideGeometry(ReferenceGridType.DIAGONAL)
+
+        assertEquals(1, geometry.lines.size)
+        assertTrue(geometry.spiralPoints.isEmpty())
+        assertEquals(MeteringPoint(x = 0f, y = 0f), geometry.lines.first().start)
+        assertEquals(MeteringPoint(x = 1f, y = 1f), geometry.lines.first().end)
     }
 
     @Test

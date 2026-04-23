@@ -36,7 +36,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -51,12 +54,17 @@ import com.yourbrand.lumameter.pro.domain.exposure.FrameExposureMetadata
 import com.yourbrand.lumameter.pro.domain.exposure.LuminanceReading
 import com.yourbrand.lumameter.pro.domain.exposure.MeteringMode
 import com.yourbrand.lumameter.pro.domain.exposure.MeteringPoint
+import com.yourbrand.lumameter.pro.domain.exposure.ReferenceGridType
 import com.yourbrand.lumameter.pro.domain.exposure.ViewfinderAspectRatio
 import com.yourbrand.lumameter.pro.domain.exposure.WhiteBalanceGains
 import java.util.concurrent.CancellationException
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.math.abs
+import kotlin.math.cos
+import kotlin.math.exp
+import kotlin.math.ln
+import kotlin.math.sin
 
 @Composable
 fun MeterCameraPreview(
@@ -69,7 +77,7 @@ fun MeterCameraPreview(
     requestedZoomRatio: Float,
     enableSpotMetering: Boolean,
     showMeteringReticle: Boolean,
-    showGuideGrid: Boolean,
+    referenceGridType: ReferenceGridType?,
     showLevelIndicator: Boolean,
     onMeteringPointChanged: (MeteringPoint) -> Unit,
     onPreviewTapped: () -> Unit,
@@ -279,8 +287,11 @@ fun MeterCameraPreview(
             modifier = Modifier.fillMaxSize(),
         )
 
-        if (showGuideGrid) {
-            GuideGridOverlay()
+        referenceGridType?.let { type ->
+            ReferenceGridOverlay(
+                type = type,
+                viewfinderAspectRatio = viewfinderAspectRatio,
+            )
         }
 
         if (showLevelIndicator) {
@@ -306,6 +317,200 @@ internal fun resolveDisplayedReticlePoint(
         MeteringMode.AVERAGE -> null
         MeteringMode.CENTER_WEIGHTED -> MeteringPoint.Center
         MeteringMode.SPOT -> if (hasCustomSpotMeteringPoint) meteringPoint else null
+    }
+}
+
+internal data class GuideLineSegment(
+    val start: MeteringPoint,
+    val end: MeteringPoint,
+)
+
+internal data class ReferenceGuideGeometry(
+    val lines: List<GuideLineSegment>,
+    val spiralPoints: List<MeteringPoint> = emptyList(),
+)
+
+internal fun buildReferenceGuideGeometry(
+    type: ReferenceGridType,
+    viewfinderAspectRatio: ViewfinderAspectRatio = ViewfinderAspectRatio.Default,
+): ReferenceGuideGeometry {
+    return when (type) {
+        ReferenceGridType.THIRDS -> ReferenceGuideGeometry(
+            lines = buildGuideLineSegments(
+                fractions = listOf(1f / 3f, 2f / 3f),
+            ),
+        )
+
+        ReferenceGridType.GOLDEN_SPIRAL -> buildGoldenSpiralGeometry(
+            horizontalMode = viewfinderAspectRatio.prefersHorizontalGoldenSpiral(),
+        )
+
+        ReferenceGridType.DIAGONAL -> ReferenceGuideGeometry(
+            lines = listOf(
+                GuideLineSegment(
+                    start = MeteringPoint(x = 0f, y = 0f),
+                    end = MeteringPoint(x = 1f, y = 1f),
+                )
+            ),
+        )
+    }
+}
+
+private fun buildGoldenSpiralGeometry(
+    horizontalMode: Boolean,
+): ReferenceGuideGeometry {
+    val sampledPoints = sampleGoldenSpiralPoints()
+    val horizontalOffset = calculateHorizontalCenterOffset(
+        points = sampledPoints,
+        additionalOffset = -GOLDEN_SPIRAL_HORIZONTAL_BIAS,
+    )
+    val focusPoint = resolveGoldenSpiralFocusPoint(horizontalOffset)
+    val baseGeometry = ReferenceGuideGeometry(
+        lines = buildGoldenSpiralFocusLines(focusPoint),
+        spiralPoints = offsetPoints(
+            points = sampledPoints,
+            xOffset = horizontalOffset,
+            yOffset = GOLDEN_SPIRAL_VERTICAL_BIAS,
+        ),
+    )
+
+    return if (horizontalMode) {
+        baseGeometry.transpose()
+    } else {
+        baseGeometry
+    }
+}
+
+private fun buildGoldenSpiralFocusLines(
+    focusPoint: MeteringPoint,
+): List<GuideLineSegment> {
+    return listOf(
+        GuideLineSegment(
+            start = MeteringPoint(x = focusPoint.x, y = 0f),
+            end = MeteringPoint(x = focusPoint.x, y = 1f),
+        ),
+        GuideLineSegment(
+            start = MeteringPoint(x = 0f, y = focusPoint.y),
+            end = MeteringPoint(x = 1f, y = focusPoint.y),
+        ),
+    )
+}
+
+private fun ReferenceGuideGeometry.transpose(): ReferenceGuideGeometry {
+    return ReferenceGuideGeometry(
+        lines = lines.map { it.transpose() },
+        spiralPoints = spiralPoints.map { it.transpose() },
+    )
+}
+
+private fun GuideLineSegment.transpose(): GuideLineSegment {
+    return GuideLineSegment(
+        start = start.transpose(),
+        end = end.transpose(),
+    )
+}
+
+private fun MeteringPoint.transpose(): MeteringPoint {
+    return MeteringPoint(
+        x = y,
+        y = x,
+    )
+}
+
+private fun buildGuideLineSegments(
+    fractions: List<Float>,
+): List<GuideLineSegment> {
+    return buildList {
+        fractions.sorted().forEach { fraction ->
+            add(
+                GuideLineSegment(
+                    start = MeteringPoint(x = fraction, y = 0f),
+                    end = MeteringPoint(x = fraction, y = 1f),
+                )
+            )
+            add(
+                GuideLineSegment(
+                    start = MeteringPoint(x = 0f, y = fraction),
+                    end = MeteringPoint(x = 1f, y = fraction),
+                )
+            )
+        }
+    }
+}
+
+internal fun sampleGoldenSpiralPoints(
+    pointCount: Int = GOLDEN_SPIRAL_POINT_COUNT,
+): List<MeteringPoint> {
+    if (pointCount <= 1) {
+        return listOf(
+            MeteringPoint(
+                x = GOLDEN_SECTION_FOCUS,
+                y = GOLDEN_SECTION_FOCUS,
+            )
+        )
+    }
+
+    val angleSpan = GOLDEN_SPIRAL_TURNS * 2f * Math.PI.toFloat()
+    return List(pointCount) { index ->
+        val progress = index / (pointCount - 1).toFloat()
+        val outerWeight = 1f - progress
+        val tailAngleAdjustment = GOLDEN_SPIRAL_TAIL_ANGLE_ADJUSTMENT *
+            outerWeight * outerWeight * outerWeight
+        val angle = GOLDEN_SPIRAL_START_ANGLE_RADIANS + angleSpan * progress + tailAngleAdjustment
+        val radius = GOLDEN_SPIRAL_MAX_RADIUS * exp(-GOLDEN_SPIRAL_DECAY * angleSpan * progress)
+
+        MeteringPoint(
+            x = GOLDEN_SECTION_FOCUS + radius * cos(angle),
+            y = GOLDEN_SECTION_FOCUS + radius * sin(angle),
+        )
+    }
+}
+
+internal fun calculateHorizontalCenterOffset(
+    points: List<MeteringPoint>,
+    additionalOffset: Float = 0f,
+): Float {
+    if (points.isEmpty()) {
+        return additionalOffset
+    }
+
+    val minX = points.minOf { it.x }
+    val maxX = points.maxOf { it.x }
+    return 0.5f - ((minX + maxX) / 2f) + additionalOffset
+}
+
+internal fun resolveGoldenSpiralFocusPoint(
+    horizontalOffset: Float,
+): MeteringPoint {
+    return MeteringPoint(
+        x = GOLDEN_SECTION_FOCUS + horizontalOffset,
+        y = GOLDEN_SECTION_FOCUS + GOLDEN_SPIRAL_VERTICAL_BIAS,
+    )
+}
+
+private fun offsetPoints(
+    points: List<MeteringPoint>,
+    xOffset: Float = 0f,
+    yOffset: Float = 0f,
+): List<MeteringPoint> {
+    if (abs(xOffset) < 0.0001f && abs(yOffset) < 0.0001f) {
+        return points
+    }
+
+    return points.map { point ->
+        MeteringPoint(
+            x = point.x + xOffset,
+            y = point.y + yOffset,
+        )
+    }
+}
+
+private fun ViewfinderAspectRatio.prefersHorizontalGoldenSpiral(): Boolean {
+    return when (this) {
+        ViewfinderAspectRatio.NINE_SIX,
+        ViewfinderAspectRatio.SIXTEEN_NINE -> true
+
+        else -> false
     }
 }
 
@@ -353,41 +558,61 @@ private fun Throwable.isZoomRequestCancellation(): Boolean {
 }
 
 @Composable
-private fun GuideGridOverlay(
+private fun ReferenceGridOverlay(
+    type: ReferenceGridType,
+    viewfinderAspectRatio: ViewfinderAspectRatio,
     modifier: Modifier = Modifier,
 ) {
     val density = LocalDensity.current
     val strokeWidth = with(density) { 1.dp.toPx() }
     val lineColor = Color(0xFFB5B5B5).copy(alpha = GUIDE_GRID_ALPHA)
+    val geometry = remember(type, viewfinderAspectRatio) {
+        buildReferenceGuideGeometry(
+            type = type,
+            viewfinderAspectRatio = viewfinderAspectRatio,
+        )
+    }
 
     Canvas(modifier = modifier.fillMaxSize()) {
-        val verticalStep = size.width / 3f
-        val horizontalStep = size.height / 3f
+        geometry.lines.forEach { segment ->
+            drawLine(
+                color = lineColor,
+                start = Offset(
+                    x = size.width * segment.start.x,
+                    y = size.height * segment.start.y,
+                ),
+                end = Offset(
+                    x = size.width * segment.end.x,
+                    y = size.height * segment.end.y,
+                ),
+                strokeWidth = strokeWidth,
+            )
+        }
 
-        drawLine(
-            color = lineColor,
-            start = Offset(verticalStep, 0f),
-            end = Offset(verticalStep, size.height),
-            strokeWidth = strokeWidth,
-        )
-        drawLine(
-            color = lineColor,
-            start = Offset(verticalStep * 2f, 0f),
-            end = Offset(verticalStep * 2f, size.height),
-            strokeWidth = strokeWidth,
-        )
-        drawLine(
-            color = lineColor,
-            start = Offset(0f, horizontalStep),
-            end = Offset(size.width, horizontalStep),
-            strokeWidth = strokeWidth,
-        )
-        drawLine(
-            color = lineColor,
-            start = Offset(0f, horizontalStep * 2f),
-            end = Offset(size.width, horizontalStep * 2f),
-            strokeWidth = strokeWidth,
-        )
+        if (geometry.spiralPoints.size > 1) {
+            val spiralPath = Path().apply {
+                val first = geometry.spiralPoints.first()
+                moveTo(
+                    x = size.width * first.x,
+                    y = size.height * first.y,
+                )
+                geometry.spiralPoints.drop(1).forEach { point ->
+                    lineTo(
+                        x = size.width * point.x,
+                        y = size.height * point.y,
+                    )
+                }
+            }
+            drawPath(
+                path = spiralPath,
+                color = lineColor,
+                style = Stroke(
+                    width = strokeWidth,
+                    cap = StrokeCap.Round,
+                    join = StrokeJoin.Round,
+                ),
+            )
+        }
     }
 }
 
@@ -610,6 +835,16 @@ private fun LevelIndicatorOverlay(
 private const val DEFAULT_ZOOM_RATIO = 1f
 private const val ZOOM_UPDATE_EPSILON = 0.01f
 private const val GUIDE_GRID_ALPHA = 0.42f
+private const val GOLDEN_RATIO = 1.6180339f
+private const val GOLDEN_SECTION_FOCUS = 1f / GOLDEN_RATIO
+private const val GOLDEN_SPIRAL_MAX_RADIUS = 0.92f
+private const val GOLDEN_SPIRAL_TURNS = 2.25f
+private const val GOLDEN_SPIRAL_POINT_COUNT = 160
+private const val GOLDEN_SPIRAL_HORIZONTAL_BIAS = 0.07f
+private const val GOLDEN_SPIRAL_VERTICAL_BIAS = 0.015f
+private const val GOLDEN_SPIRAL_TAIL_ANGLE_ADJUSTMENT = -0.06f
+private const val GOLDEN_SPIRAL_START_ANGLE_RADIANS = -2.3561945f
+private val GOLDEN_SPIRAL_DECAY = (2f * ln(GOLDEN_RATIO) / Math.PI.toFloat())
 private const val RETICLE_ALPHA = 0.78f
 private const val LEVEL_SMOOTHING_FACTOR = 0.75f
 private const val LEVEL_THRESHOLD_DEGREES = 1f

@@ -157,6 +157,7 @@ import com.yourbrand.lumameter.pro.domain.exposure.ExposureMode
 import com.yourbrand.lumameter.pro.domain.exposure.LuminanceReading
 import com.yourbrand.lumameter.pro.domain.exposure.MeteringMode
 import com.yourbrand.lumameter.pro.domain.exposure.MeteringPoint
+import com.yourbrand.lumameter.pro.domain.exposure.ReferenceGridType
 import com.yourbrand.lumameter.pro.domain.exposure.ViewfinderAspectRatio
 import com.yourbrand.lumameter.pro.domain.exposure.WhiteBalanceCondition
 import com.yourbrand.lumameter.pro.domain.exposure.WhiteBalanceReading
@@ -224,6 +225,8 @@ fun MeterRoute(
     onLiveMeteringEnabledChanged: (Boolean) -> Unit,
     guideGridEnabled: Boolean,
     onGuideGridEnabledChanged: (Boolean) -> Unit,
+    referenceGridType: ReferenceGridType,
+    onReferenceGridTypeChanged: (ReferenceGridType) -> Unit,
     histogramEnabled: Boolean,
     onHistogramEnabledChanged: (Boolean) -> Unit,
     levelIndicatorEnabled: Boolean,
@@ -397,7 +400,7 @@ fun MeterRoute(
                 onNdFilterSelected = viewModel::setNdFilter,
                 onCompensationChanged = viewModel::setCompensation,
                 onAeLockToggled = viewModel::toggleAeLock,
-                showGuideGrid = guideGridEnabled,
+                referenceGridType = referenceGridType.takeIf { guideGridEnabled },
                 showHistogram = histogramEnabled,
                 showLevelIndicator = levelIndicatorEnabled,
                 viewfinderAspectRatio = viewfinderAspectRatio,
@@ -424,6 +427,8 @@ fun MeterRoute(
                 onLiveMeteringEnabledChanged = onLiveMeteringEnabledChanged,
                 guideGridEnabled = guideGridEnabled,
                 onGuideGridEnabledChanged = onGuideGridEnabledChanged,
+                referenceGridType = referenceGridType,
+                onReferenceGridTypeChanged = onReferenceGridTypeChanged,
                 histogramEnabled = histogramEnabled,
                 onHistogramEnabledChanged = onHistogramEnabledChanged,
                 levelIndicatorEnabled = levelIndicatorEnabled,
@@ -511,7 +516,7 @@ private fun MeterMainPage(
     onNdFilterSelected: (Int) -> Unit,
     onCompensationChanged: (Float) -> Unit,
     onAeLockToggled: () -> Unit,
-    showGuideGrid: Boolean,
+    referenceGridType: ReferenceGridType?,
     showHistogram: Boolean,
     showLevelIndicator: Boolean,
     viewfinderAspectRatio: ViewfinderAspectRatio,
@@ -607,7 +612,7 @@ private fun MeterMainPage(
                                 onMeteringPointChanged = onMeteringPointChanged,
                                 onZoomCapabilityResolved = onZoomCapabilityResolved,
                                 onZoomRatioChanged = onZoomRatioChanged,
-                                showGuideGrid = showGuideGrid,
+                                referenceGridType = referenceGridType,
                                 showHistogram = showHistogram,
                                 showLevelIndicator = showLevelIndicator,
                                 viewfinderAspectRatio = viewfinderAspectRatio,
@@ -1198,7 +1203,7 @@ private fun PreviewSection(
     onMeteringPointChanged: (MeteringPoint) -> Unit,
     onZoomCapabilityResolved: (Float, Float) -> Unit,
     onZoomRatioChanged: (Float) -> Unit,
-    showGuideGrid: Boolean,
+    referenceGridType: ReferenceGridType?,
     showHistogram: Boolean,
     showLevelIndicator: Boolean,
     viewfinderAspectRatio: ViewfinderAspectRatio,
@@ -1218,7 +1223,7 @@ private fun PreviewSection(
             onMeteringPointChanged = onMeteringPointChanged,
             onZoomCapabilityResolved = onZoomCapabilityResolved,
             onZoomRatioChanged = onZoomRatioChanged,
-            showGuideGrid = showGuideGrid,
+            referenceGridType = referenceGridType,
             showHistogram = showHistogram,
             showLevelIndicator = showLevelIndicator,
             viewfinderAspectRatio = viewfinderAspectRatio,
@@ -1520,7 +1525,7 @@ private fun PreviewCard(
     onMeteringPointChanged: (MeteringPoint) -> Unit,
     onZoomCapabilityResolved: (Float, Float) -> Unit,
     onZoomRatioChanged: (Float) -> Unit,
-    showGuideGrid: Boolean,
+    referenceGridType: ReferenceGridType?,
     showHistogram: Boolean,
     showLevelIndicator: Boolean,
     viewfinderAspectRatio: ViewfinderAspectRatio,
@@ -1548,7 +1553,7 @@ private fun PreviewCard(
                 requestedZoomRatio = uiState.zoomRatio,
                 enableSpotMetering = uiState.analysisTool == AnalysisTool.METER,
                 showMeteringReticle = uiState.analysisTool == AnalysisTool.METER,
-                showGuideGrid = showGuideGrid,
+                referenceGridType = referenceGridType,
                 showLevelIndicator = showLevelIndicator,
                 onMeteringPointChanged = onMeteringPointChanged,
                 onPreviewTapped = onPreviewTapped,
@@ -2410,6 +2415,8 @@ private fun SettingsPage(
     onLiveMeteringEnabledChanged: (Boolean) -> Unit,
     guideGridEnabled: Boolean,
     onGuideGridEnabledChanged: (Boolean) -> Unit,
+    referenceGridType: ReferenceGridType,
+    onReferenceGridTypeChanged: (ReferenceGridType) -> Unit,
     histogramEnabled: Boolean,
     onHistogramEnabledChanged: (Boolean) -> Unit,
     levelIndicatorEnabled: Boolean,
@@ -2493,6 +2500,12 @@ private fun SettingsPage(
                         uncheckedIcon = Icons.Rounded.GridOff,
                         onCheckedChange = onGuideGridEnabledChanged,
                     )
+                    AnimatedVisibility(visible = guideGridEnabled) {
+                        ReferenceGridTypeCard(
+                            selectedType = referenceGridType,
+                            onTypeSelected = onReferenceGridTypeChanged,
+                        )
+                    }
                     SettingsToggleCard(
                         title = stringResource(R.string.settings_histogram),
                         subtitle = stringResource(R.string.settings_histogram_description),
@@ -2618,6 +2631,52 @@ private fun ViewfinderAspectRatioCard(
 }
 
 @Composable
+private fun ReferenceGridTypeCard(
+    selectedType: ReferenceGridType,
+    onTypeSelected: (ReferenceGridType) -> Unit,
+) {
+    val typeScrollState = rememberScrollState()
+
+    Surface(
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.settings_reference_grid_type),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                text = stringResource(R.string.settings_reference_grid_type_description),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(typeScrollState),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                ReferenceGridType.entries.forEach { option ->
+                    MeterChoiceChip(
+                        label = stringResource(option.labelRes()),
+                        selected = option == selectedType,
+                        onClick = { onTypeSelected(option) },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun SettingsToggleCard(
     title: String,
     subtitle: String,
@@ -2683,6 +2742,14 @@ private fun SettingsToggleCard(
                 ),
             )
         }
+    }
+}
+
+private fun ReferenceGridType.labelRes(): Int {
+    return when (this) {
+        ReferenceGridType.THIRDS -> R.string.reference_grid_type_thirds
+        ReferenceGridType.GOLDEN_SPIRAL -> R.string.reference_grid_type_golden_spiral
+        ReferenceGridType.DIAGONAL -> R.string.reference_grid_type_diagonal
     }
 }
 

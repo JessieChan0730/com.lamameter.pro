@@ -59,7 +59,12 @@
     <string name="settings_viewfinder_ratio">Viewfinder ratio</string>
     <string name="settings_viewfinder_ratio_description">Changes the preview frame ratio directly. The guide grid, reticle, and metering region follow the visible preview.</string>
     <string name="settings_reference_grid">Reference grid</string>
-    <string name="settings_reference_grid_description">Shows a semi-transparent gray rule-of-thirds grid over the camera preview for composition.</string>
+    <string name="settings_reference_grid_description">Shows semi-transparent composition guides over the camera preview for framing.</string>
+    <string name="settings_reference_grid_type">Guide style</string>
+    <string name="settings_reference_grid_type_description">Choose which reference guide appears on the preview when the overlay is enabled.</string>
+    <string name="reference_grid_type_thirds">Rule of thirds</string>
+    <string name="reference_grid_type_golden_spiral">Golden spiral</string>
+    <string name="reference_grid_type_diagonal">Diagonal</string>
     <string name="settings_histogram">Brightness histogram</string>
     <string name="settings_histogram_description">Shows a luminance histogram in the top-right corner of the preview to check exposure distribution.</string>
     <string name="settings_level_indicator">Level indicator</string>
