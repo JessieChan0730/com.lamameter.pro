@@ -14,6 +14,7 @@ import com.yourbrand.lumameter.pro.domain.exposure.AnalysisTool
 import com.yourbrand.lumameter.pro.domain.exposure.CalibrationPreset
 import com.yourbrand.lumameter.pro.domain.exposure.ExposureMode
 import com.yourbrand.lumameter.pro.domain.exposure.MeteringMode
+import com.yourbrand.lumameter.pro.domain.exposure.ReferenceGridType
 import com.yourbrand.lumameter.pro.domain.exposure.ViewfinderAspectRatio
 import com.yourbrand.lumameter.pro.ui.meter.MeterRoute
 import com.yourbrand.lumameter.pro.ui.theme.AppColorTheme
@@ -57,6 +58,16 @@ class MainActivity : ComponentActivity() {
                     preferences.getBoolean(KEY_GUIDE_GRID_ENABLED, false),
                 )
             }
+            var referenceGridType by rememberSaveable {
+                mutableStateOf(
+                    ReferenceGridType.fromStorageValue(
+                        preferences.getString(
+                            KEY_REFERENCE_GRID_TYPE,
+                            ReferenceGridType.Default.storageValue,
+                        ),
+                    )
+                )
+            }
             var histogramEnabled by rememberSaveable {
                 mutableStateOf(
                     preferences.getBoolean(KEY_HISTOGRAM_ENABLED, false),
@@ -96,6 +107,11 @@ class MainActivity : ComponentActivity() {
             LaunchedEffect(guideGridEnabled) {
                 preferences.edit()
                     .putBoolean(KEY_GUIDE_GRID_ENABLED, guideGridEnabled)
+                    .apply()
+            }
+            LaunchedEffect(referenceGridType) {
+                preferences.edit()
+                    .putString(KEY_REFERENCE_GRID_TYPE, referenceGridType.storageValue)
                     .apply()
             }
             LaunchedEffect(histogramEnabled) {
@@ -179,6 +195,8 @@ class MainActivity : ComponentActivity() {
                     onLiveMeteringEnabledChanged = { liveMeteringEnabled = it },
                     guideGridEnabled = guideGridEnabled,
                     onGuideGridEnabledChanged = { guideGridEnabled = it },
+                    referenceGridType = referenceGridType,
+                    onReferenceGridTypeChanged = { referenceGridType = it },
                     histogramEnabled = histogramEnabled,
                     onHistogramEnabledChanged = { histogramEnabled = it },
                     levelIndicatorEnabled = levelIndicatorEnabled,
@@ -215,6 +233,7 @@ class MainActivity : ComponentActivity() {
         const val KEY_COLOR_THEME = "color_theme"
         const val KEY_LIVE_METERING_ENABLED = "live_metering_enabled"
         const val KEY_GUIDE_GRID_ENABLED = "guide_grid_enabled"
+        const val KEY_REFERENCE_GRID_TYPE = "reference_grid_type"
         const val KEY_HISTOGRAM_ENABLED = "histogram_enabled"
         const val KEY_LEVEL_INDICATOR_ENABLED = "level_indicator_enabled"
         const val KEY_VIEWFINDER_ASPECT_RATIO = "viewfinder_aspect_ratio"

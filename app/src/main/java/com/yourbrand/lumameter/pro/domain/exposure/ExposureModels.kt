@@ -39,6 +39,23 @@ enum class ViewfinderAspectRatio(
     }
 }
 
+enum class ReferenceGridType(
+    val storageValue: String,
+) {
+    THIRDS("thirds"),
+    GOLDEN_SPIRAL("golden_spiral"),
+    DIAGONAL("diagonal"),
+    ;
+
+    companion object {
+        val Default = THIRDS
+
+        fun fromStorageValue(value: String?): ReferenceGridType {
+            return entries.firstOrNull { it.storageValue == value } ?: Default
+        }
+    }
+}
+
 data class MeteringPoint(
     val x: Float = 0.5f,
     val y: Float = 0.5f,

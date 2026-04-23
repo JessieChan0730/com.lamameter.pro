@@ -59,7 +59,12 @@
     <string name="settings_viewfinder_ratio">取景框比例</string>
     <string name="settings_viewfinder_ratio_description">直接调整取景框本身的比例大小。参考线、测光框与测光范围都会跟随可见取景画面调整。</string>
     <string name="settings_reference_grid">开启参考线</string>
-    <string name="settings_reference_grid_description">在取景框上显示灰色半透明九宫格，方便构图参考。</string>
+    <string name="settings_reference_grid_description">在取景框上显示半透明构图参考线，辅助画面布局。</string>
+    <string name="settings_reference_grid_type">参考线样式</string>
+    <string name="settings_reference_grid_type_description">开启参考线后，可选择在取景框上显示哪一种构图参考。</string>
+    <string name="reference_grid_type_thirds">三分线</string>
+    <string name="reference_grid_type_golden_spiral">黄金螺旋</string>
+    <string name="reference_grid_type_diagonal">对角线</string>
     <string name="settings_histogram">亮度直方图</string>
     <string name="settings_histogram_description">在取景框右上角显示亮度直方图，用于判断画面曝光分布。</string>
     <string name="settings_level_indicator">水平仪</string>
