@@ -16,6 +16,7 @@ import com.yourbrand.lumameter.pro.domain.exposure.ExposureMode
 import com.yourbrand.lumameter.pro.domain.exposure.MeteringMode
 import com.yourbrand.lumameter.pro.domain.exposure.ViewfinderAspectRatio
 import com.yourbrand.lumameter.pro.ui.meter.MeterRoute
+import com.yourbrand.lumameter.pro.ui.theme.AppColorTheme
 import com.yourbrand.lumameter.pro.ui.theme.AppThemeMode
 import com.yourbrand.lumameter.pro.ui.theme.LumaMeterTheme
 import com.yourbrand.lumameter.pro.viewmodel.MeterDefaults
@@ -33,6 +34,16 @@ class MainActivity : ComponentActivity() {
                 mutableStateOf(
                     AppThemeMode.fromStorageValue(
                         preferences.getString(KEY_THEME_MODE, AppThemeMode.SYSTEM.storageValue),
+                    )
+                )
+            }
+            var colorTheme by rememberSaveable {
+                mutableStateOf(
+                    AppColorTheme.fromStorageValue(
+                        preferences.getString(
+                            KEY_COLOR_THEME,
+                            AppColorTheme.CLASSIC_AMBER.storageValue,
+                        ),
                     )
                 )
             }
@@ -70,6 +81,11 @@ class MainActivity : ComponentActivity() {
             LaunchedEffect(themeMode) {
                 preferences.edit()
                     .putString(KEY_THEME_MODE, themeMode.storageValue)
+                    .apply()
+            }
+            LaunchedEffect(colorTheme) {
+                preferences.edit()
+                    .putString(KEY_COLOR_THEME, colorTheme.storageValue)
                     .apply()
             }
             LaunchedEffect(liveMeteringEnabled) {
@@ -150,10 +166,15 @@ class MainActivity : ComponentActivity() {
                 )
             }
 
-            LumaMeterTheme(themeMode = themeMode) {
+            LumaMeterTheme(
+                themeMode = themeMode,
+                colorTheme = colorTheme,
+            ) {
                 MeterRoute(
                     themeMode = themeMode,
                     onThemeModeChanged = { themeMode = it },
+                    colorTheme = colorTheme,
+                    onColorThemeChanged = { colorTheme = it },
                     liveMeteringEnabled = liveMeteringEnabled,
                     onLiveMeteringEnabledChanged = { liveMeteringEnabled = it },
                     guideGridEnabled = guideGridEnabled,
@@ -191,6 +212,7 @@ class MainActivity : ComponentActivity() {
     private companion object {
         const val THEME_PREFS_NAME = "luma_meter_prefs"
         const val KEY_THEME_MODE = "theme_mode"
+        const val KEY_COLOR_THEME = "color_theme"
         const val KEY_LIVE_METERING_ENABLED = "live_metering_enabled"
         const val KEY_GUIDE_GRID_ENABLED = "guide_grid_enabled"
         const val KEY_HISTOGRAM_ENABLED = "histogram_enabled"

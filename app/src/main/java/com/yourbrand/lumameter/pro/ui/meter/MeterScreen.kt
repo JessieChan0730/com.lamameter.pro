@@ -19,12 +19,14 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.border
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
@@ -78,6 +80,7 @@ import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.LockOpen
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.NightlightRound
+import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.PhotoCamera
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Settings
@@ -165,7 +168,9 @@ import com.yourbrand.lumameter.pro.ui.components.MeterSnackbarHost
 import com.yourbrand.lumameter.pro.ui.components.MeterSnackbarPosition
 import com.yourbrand.lumameter.pro.ui.components.MeterSnackbarStatus
 import com.yourbrand.lumameter.pro.ui.components.showMeterSnackbar
+import com.yourbrand.lumameter.pro.ui.theme.AppColorTheme
 import com.yourbrand.lumameter.pro.ui.theme.AppThemeMode
+import com.yourbrand.lumameter.pro.ui.theme.MeterPalettePreview
 import com.yourbrand.lumameter.pro.viewmodel.CalibrationImportStrategy
 import com.yourbrand.lumameter.pro.viewmodel.MeterDefaults
 import com.yourbrand.lumameter.pro.viewmodel.MeterStatus
@@ -213,6 +218,8 @@ private data class SliderScaleStop(
 fun MeterRoute(
     themeMode: AppThemeMode,
     onThemeModeChanged: (AppThemeMode) -> Unit,
+    colorTheme: AppColorTheme,
+    onColorThemeChanged: (AppColorTheme) -> Unit,
     liveMeteringEnabled: Boolean,
     onLiveMeteringEnabledChanged: (Boolean) -> Unit,
     guideGridEnabled: Boolean,
@@ -411,6 +418,8 @@ fun MeterRoute(
             MeterPage.SETTINGS -> SettingsPage(
                 themeMode = themeMode,
                 onThemeModeChanged = onThemeModeChanged,
+                colorTheme = colorTheme,
+                onColorThemeChanged = onColorThemeChanged,
                 liveMeteringEnabled = liveMeteringEnabled,
                 onLiveMeteringEnabledChanged = onLiveMeteringEnabledChanged,
                 guideGridEnabled = guideGridEnabled,
@@ -2395,6 +2404,8 @@ private fun NdFilterSelector(
 private fun SettingsPage(
     themeMode: AppThemeMode,
     onThemeModeChanged: (AppThemeMode) -> Unit,
+    colorTheme: AppColorTheme,
+    onColorThemeChanged: (AppColorTheme) -> Unit,
     liveMeteringEnabled: Boolean,
     onLiveMeteringEnabledChanged: (Boolean) -> Unit,
     guideGridEnabled: Boolean,
@@ -2408,6 +2419,8 @@ private fun SettingsPage(
     onBack: () -> Unit,
 ) {
     val scrollState = rememberScrollState()
+    var showColorThemes by rememberSaveable { mutableStateOf(false) }
+    val darkThemePreview = themeMode.resolveDarkTheme(isSystemInDarkTheme())
 
     Box(
         modifier = Modifier
@@ -2507,6 +2520,11 @@ private fun SettingsPage(
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    Text(
+                        text = stringResource(R.string.settings_display_mode_title),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
 
                     ThemeOptionCard(
                         title = stringResource(R.string.theme_system),
@@ -2529,6 +2547,24 @@ private fun SettingsPage(
                         selected = themeMode == AppThemeMode.DARK,
                         onClick = { onThemeModeChanged(AppThemeMode.DARK) },
                     )
+                    Text(
+                        text = stringResource(R.string.settings_color_theme_title),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    ThemePaletteDisclosureCard(
+                        selectedTheme = colorTheme,
+                        darkThemePreview = darkThemePreview,
+                        expanded = showColorThemes,
+                        onClick = { showColorThemes = !showColorThemes },
+                    )
+                    AnimatedVisibility(visible = showColorThemes) {
+                        ThemePaletteSelector(
+                            selectedTheme = colorTheme,
+                            darkThemePreview = darkThemePreview,
+                            onThemeSelected = onColorThemeChanged,
+                        )
+                    }
                 }
             }
         }
@@ -2727,6 +2763,252 @@ private fun ThemeOptionCard(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun ThemePaletteDisclosureCard(
+    selectedTheme: AppColorTheme,
+    darkThemePreview: Boolean,
+    expanded: Boolean,
+    onClick: () -> Unit,
+) {
+    val arrowRotation by animateFloatAsState(
+        targetValue = if (expanded) 180f else 0f,
+        label = "theme_palette_arrow",
+    )
+
+    Surface(
+        shape = RoundedCornerShape(18.dp),
+        color = if (expanded) {
+            MaterialTheme.colorScheme.primaryContainer
+        } else {
+            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        },
+        onClick = onClick,
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Surface(
+                shape = CircleShape,
+                color = if (expanded) {
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                } else {
+                    MaterialTheme.colorScheme.background
+                },
+            ) {
+                Icon(
+                    modifier = Modifier.padding(12.dp),
+                    imageVector = Icons.Rounded.Palette,
+                    contentDescription = null,
+                    tint = if (expanded) {
+                        MaterialTheme.colorScheme.onPrimaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                )
+            }
+
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Text(
+                    text = stringResource(R.string.settings_color_theme_title),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (expanded) {
+                        MaterialTheme.colorScheme.onPrimaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.onSurface
+                    },
+                )
+                Text(
+                    text = if (expanded) {
+                        stringResource(R.string.settings_color_theme_description)
+                    } else {
+                        stringResource(
+                            R.string.settings_color_theme_current,
+                            stringResource(selectedTheme.titleRes()),
+                        )
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (expanded) {
+                        MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.82f)
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                )
+                ThemePalettePreviewRow(
+                    preview = selectedTheme.preview(darkThemePreview),
+                    selected = expanded,
+                )
+            }
+
+            Icon(
+                modifier = Modifier.graphicsLayer {
+                    rotationZ = arrowRotation
+                },
+                imageVector = Icons.Rounded.ArrowDropDown,
+                contentDescription = null,
+                tint = if (expanded) {
+                    MaterialTheme.colorScheme.onPrimaryContainer
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+            )
+        }
+    }
+}
+
+@Composable
+private fun ThemePaletteSelector(
+    selectedTheme: AppColorTheme,
+    darkThemePreview: Boolean,
+    onThemeSelected: (AppColorTheme) -> Unit,
+) {
+    LazyRow(
+        modifier = Modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        items(AppColorTheme.entries) { option ->
+            ThemePaletteOptionCard(
+                title = stringResource(option.titleRes()),
+                subtitle = stringResource(option.descriptionRes()),
+                preview = option.preview(darkThemePreview),
+                selected = option == selectedTheme,
+                onClick = { onThemeSelected(option) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun ThemePaletteOptionCard(
+    title: String,
+    subtitle: String,
+    preview: MeterPalettePreview,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    Surface(
+        modifier = Modifier.width(220.dp),
+        shape = RoundedCornerShape(20.dp),
+        color = if (selected) {
+            MaterialTheme.colorScheme.primaryContainer
+        } else {
+            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        },
+        onClick = onClick,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                ThemePalettePreviewRow(
+                    preview = preview,
+                    selected = selected,
+                )
+                if (selected) {
+                    Icon(
+                        imageVector = Icons.Rounded.Check,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    )
+                }
+            }
+
+            Column(
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (selected) {
+                        MaterialTheme.colorScheme.onPrimaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.onSurface
+                    },
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (selected) {
+                        MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.82f)
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ThemePalettePreviewRow(
+    preview: MeterPalettePreview,
+    selected: Boolean,
+) {
+    val borderColor = if (selected) {
+        MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.18f)
+    } else {
+        MaterialTheme.colorScheme.outline.copy(alpha = 0.28f)
+    }
+    val swatchColors = listOf(
+        preview.background,
+        preview.surface,
+        preview.accent,
+    )
+
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        swatchColors.forEachIndexed { index, color ->
+            Box(
+                modifier = Modifier
+                    .size(if (index == swatchColors.lastIndex) 22.dp else 18.dp)
+                    .clip(CircleShape)
+                    .background(color)
+                    .border(width = 1.dp, color = borderColor, shape = CircleShape),
+            )
+        }
+    }
+}
+
+private fun AppColorTheme.titleRes(): Int {
+    return when (this) {
+        AppColorTheme.CLASSIC_AMBER -> R.string.color_theme_classic_amber
+        AppColorTheme.CYAN_TECH -> R.string.color_theme_cyan_tech
+        AppColorTheme.NAVY_ORANGE -> R.string.color_theme_navy_orange
+        AppColorTheme.INDUSTRIAL_GREEN -> R.string.color_theme_industrial_green
+        AppColorTheme.SOFT_VIOLET -> R.string.color_theme_soft_violet
+        AppColorTheme.PAPER_LIGHT -> R.string.color_theme_paper_light
+    }
+}
+
+private fun AppColorTheme.descriptionRes(): Int {
+    return when (this) {
+        AppColorTheme.CLASSIC_AMBER -> R.string.color_theme_classic_amber_description
+        AppColorTheme.CYAN_TECH -> R.string.color_theme_cyan_tech_description
+        AppColorTheme.NAVY_ORANGE -> R.string.color_theme_navy_orange_description
+        AppColorTheme.INDUSTRIAL_GREEN -> R.string.color_theme_industrial_green_description
+        AppColorTheme.SOFT_VIOLET -> R.string.color_theme_soft_violet_description
+        AppColorTheme.PAPER_LIGHT -> R.string.color_theme_paper_light_description
     }
 }
 
