@@ -31,6 +31,19 @@ enum class ViewfinderAspectRatio(
     val ratio: Float
         get() = widthUnits.toFloat() / heightUnits.toFloat()
 
+    fun supportedReferenceGridTypes(): List<ReferenceGridType> {
+        return when (this) {
+            FOUR_THREE,
+            SIXTEEN_NINE
+            -> listOf(
+                ReferenceGridType.THIRDS,
+                ReferenceGridType.DIAGONAL,
+            )
+
+            else -> ReferenceGridType.entries
+        }
+    }
+
     companion object {
         val Default = FOUR_THREE
 
@@ -57,11 +70,31 @@ enum class ReferenceGridType(
     DIAGONAL("diagonal"),
     ;
 
+    fun isSupportedFor(viewfinderAspectRatio: ViewfinderAspectRatio): Boolean {
+        return this in viewfinderAspectRatio.supportedReferenceGridTypes()
+    }
+
     companion object {
         val Default = THIRDS
 
         fun fromStorageValue(value: String?): ReferenceGridType {
             return entries.firstOrNull { it.storageValue == value } ?: Default
+        }
+
+        fun normalizeForViewfinder(
+            referenceGridType: ReferenceGridType,
+            viewfinderAspectRatio: ViewfinderAspectRatio,
+            fallback: ReferenceGridType = Default,
+        ): ReferenceGridType {
+            if (referenceGridType.isSupportedFor(viewfinderAspectRatio)) {
+                return referenceGridType
+            }
+
+            if (fallback.isSupportedFor(viewfinderAspectRatio)) {
+                return fallback
+            }
+
+            return viewfinderAspectRatio.supportedReferenceGridTypes().first()
         }
     }
 }

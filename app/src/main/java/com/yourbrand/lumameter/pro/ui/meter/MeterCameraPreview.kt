@@ -350,6 +350,10 @@ internal fun buildReferenceGuideGeometry(
                 GuideLineSegment(
                     start = MeteringPoint(x = 0f, y = 0f),
                     end = MeteringPoint(x = 1f, y = 1f),
+                ),
+                GuideLineSegment(
+                    start = MeteringPoint(x = 1f, y = 0f),
+                    end = MeteringPoint(x = 0f, y = 1f),
                 )
             ),
         )
@@ -373,12 +377,20 @@ private fun buildGoldenSpiralGeometry(
             yOffset = GOLDEN_SPIRAL_VERTICAL_BIAS,
         ),
     )
-
-    return if (horizontalMode) {
+    val orientedGeometry = if (horizontalMode) {
         baseGeometry.transpose()
     } else {
         baseGeometry
     }
+    val orientedFocusPoint = if (horizontalMode) {
+        focusPoint.transpose()
+    } else {
+        focusPoint
+    }
+
+    return orientedGeometry.mirrorSpiralHorizontally(
+        pivotX = orientedFocusPoint.x,
+    ).rebalanceHorizontally()
 }
 
 private fun buildGoldenSpiralFocusLines(
@@ -414,6 +426,73 @@ private fun MeteringPoint.transpose(): MeteringPoint {
     return MeteringPoint(
         x = y,
         y = x,
+    )
+}
+
+private fun ReferenceGuideGeometry.mirrorSpiralHorizontally(
+    pivotX: Float,
+): ReferenceGuideGeometry {
+    return copy(
+        spiralPoints = spiralPoints.map { point ->
+            point.mirrorHorizontally(pivotX)
+        },
+    )
+}
+
+private fun ReferenceGuideGeometry.rebalanceHorizontally(): ReferenceGuideGeometry {
+    val visibleSpiralPoints = spiralPoints.filter { point ->
+        point.x in 0f..1f && point.y in 0f..1f
+    }
+    if (visibleSpiralPoints.size < 2) {
+        return this
+    }
+
+    val minX = visibleSpiralPoints.minOf { it.x }
+    val maxX = visibleSpiralPoints.maxOf { it.x }
+    val visibleWidth = maxX - minX
+    if (visibleWidth < 0.0001f) {
+        return this
+    }
+
+    val targetGap = minOf(minX, 1f - maxX)
+    val scaleX = (1f - (2f * targetGap)) / visibleWidth
+
+    return transformHorizontally { x ->
+        targetGap + ((x - minX) * scaleX)
+    }
+}
+
+private fun ReferenceGuideGeometry.transformHorizontally(
+    transformX: (Float) -> Float,
+): ReferenceGuideGeometry {
+    return ReferenceGuideGeometry(
+        lines = lines.map { segment ->
+            GuideLineSegment(
+                start = segment.start.transformHorizontally(transformX),
+                end = segment.end.transformHorizontally(transformX),
+            )
+        },
+        spiralPoints = spiralPoints.map { point ->
+            point.transformHorizontally(transformX)
+        },
+    )
+}
+
+private fun MeteringPoint.mirrorHorizontally(
+    pivotX: Float,
+): MeteringPoint {
+    return MeteringPoint(
+        x = (2f * pivotX) - x,
+        y = y,
+    )
+}
+
+private fun MeteringPoint.transformHorizontally(
+    transformX: (Float) -> Float,
+): MeteringPoint {
+    return MeteringPoint(
+        x = transformX(x),
+        y = y,
     )
 }
 

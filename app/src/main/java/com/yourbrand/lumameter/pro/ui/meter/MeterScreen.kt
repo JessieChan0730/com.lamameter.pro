@@ -262,6 +262,12 @@ fun MeterRoute(
     var activeSheet by rememberSaveable { mutableStateOf<MeterSheet?>(null) }
     var editingPresetId by rememberSaveable { mutableStateOf<String?>(null) }
     var presetEditorOriginalOffset by rememberSaveable { mutableStateOf(0.0) }
+    val normalizedReferenceGridType = remember(referenceGridType, viewfinderAspectRatio) {
+        ReferenceGridType.normalizeForViewfinder(
+            referenceGridType = referenceGridType,
+            viewfinderAspectRatio = viewfinderAspectRatio,
+        )
+    }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
@@ -421,7 +427,7 @@ fun MeterRoute(
                 onNdFilterSelected = viewModel::setNdFilter,
                 onCompensationChanged = viewModel::setCompensation,
                 onAeLockToggled = viewModel::toggleAeLock,
-                referenceGridType = referenceGridType.takeIf { guideGridEnabled },
+                referenceGridType = normalizedReferenceGridType.takeIf { guideGridEnabled },
                 showHistogram = histogramEnabled,
                 showLevelIndicator = levelIndicatorEnabled,
                 viewfinderAspectRatio = viewfinderAspectRatio,
@@ -459,7 +465,7 @@ fun MeterRoute(
                 onLiveMeteringEnabledChanged = onLiveMeteringEnabledChanged,
                 guideGridEnabled = guideGridEnabled,
                 onGuideGridEnabledChanged = onGuideGridEnabledChanged,
-                referenceGridType = referenceGridType,
+                referenceGridType = normalizedReferenceGridType,
                 onReferenceGridTypeChanged = onReferenceGridTypeChanged,
                 histogramEnabled = histogramEnabled,
                 onHistogramEnabledChanged = onHistogramEnabledChanged,
@@ -2462,6 +2468,15 @@ private fun SettingsPage(
     val scrollState = rememberScrollState()
     var showColorThemes by rememberSaveable { mutableStateOf(false) }
     val darkThemePreview = themeMode.resolveDarkTheme(isSystemInDarkTheme())
+    val availableReferenceGridTypes = remember(viewfinderAspectRatio) {
+        viewfinderAspectRatio.supportedReferenceGridTypes()
+    }
+    val normalizedReferenceGridType = remember(referenceGridType, viewfinderAspectRatio) {
+        ReferenceGridType.normalizeForViewfinder(
+            referenceGridType = referenceGridType,
+            viewfinderAspectRatio = viewfinderAspectRatio,
+        )
+    }
 
     Box(
         modifier = Modifier
@@ -2536,7 +2551,8 @@ private fun SettingsPage(
                     )
                     AnimatedVisibility(visible = guideGridEnabled) {
                         ReferenceGridTypeCard(
-                            selectedType = referenceGridType,
+                            selectedType = normalizedReferenceGridType,
+                            availableTypes = availableReferenceGridTypes,
                             onTypeSelected = onReferenceGridTypeChanged,
                         )
                     }
@@ -2676,6 +2692,7 @@ private fun ViewfinderAspectRatioCard(
 @Composable
 private fun ReferenceGridTypeCard(
     selectedType: ReferenceGridType,
+    availableTypes: List<ReferenceGridType>,
     onTypeSelected: (ReferenceGridType) -> Unit,
 ) {
     val typeScrollState = rememberScrollState()
@@ -2707,7 +2724,7 @@ private fun ReferenceGridTypeCard(
                     .horizontalScroll(typeScrollState),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                ReferenceGridType.entries.forEach { option ->
+                availableTypes.forEach { option ->
                     MeterChoiceChip(
                         label = stringResource(option.labelRes()),
                         selected = option == selectedType,
