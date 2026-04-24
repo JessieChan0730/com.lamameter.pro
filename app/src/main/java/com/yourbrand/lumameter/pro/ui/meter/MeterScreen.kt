@@ -101,6 +101,8 @@ import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderColors
 import androidx.compose.material3.SliderDefaults
@@ -169,6 +171,7 @@ import com.yourbrand.lumameter.pro.ui.components.MeterSnackbarHost
 import com.yourbrand.lumameter.pro.ui.components.MeterSnackbarPosition
 import com.yourbrand.lumameter.pro.ui.components.MeterSnackbarStatus
 import com.yourbrand.lumameter.pro.ui.components.showMeterSnackbar
+import com.yourbrand.lumameter.pro.ui.locale.AppLanguage
 import com.yourbrand.lumameter.pro.ui.theme.AppColorTheme
 import com.yourbrand.lumameter.pro.ui.theme.AppThemeMode
 import com.yourbrand.lumameter.pro.ui.theme.MeterPalettePreview
@@ -178,6 +181,7 @@ import com.yourbrand.lumameter.pro.viewmodel.MeterStatus
 import com.yourbrand.lumameter.pro.viewmodel.MeterUiState
 import com.yourbrand.lumameter.pro.viewmodel.MeterViewModel
 import com.yourbrand.lumameter.pro.viewmodel.PersistedMeterSettings
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.Locale
 import kotlin.math.abs
@@ -221,6 +225,8 @@ fun MeterRoute(
     onThemeModeChanged: (AppThemeMode) -> Unit,
     colorTheme: AppColorTheme,
     onColorThemeChanged: (AppColorTheme) -> Unit,
+    language: AppLanguage,
+    onLanguageChanged: (AppLanguage) -> Unit,
     liveMeteringEnabled: Boolean,
     onLiveMeteringEnabledChanged: (Boolean) -> Unit,
     guideGridEnabled: Boolean,
@@ -248,6 +254,7 @@ fun MeterRoute(
     ),
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val permissionRequiredMessage = stringResource(R.string.camera_permission_required)
     var hasCameraPermission by remember { mutableStateOf(context.hasCameraPermission()) }
@@ -376,11 +383,25 @@ fun MeterRoute(
         label = "meter_page",
         transitionSpec = {
             if (targetState.ordinal > initialState.ordinal) {
-                slideInHorizontally { it / 4 } + fadeIn() togetherWith
-                    slideOutHorizontally { -it / 5 } + fadeOut()
+                slideInHorizontally(
+                    animationSpec = tween(durationMillis = PAGE_TRANSITION_DURATION_MILLIS),
+                ) { it / 4 } + fadeIn(
+                    animationSpec = tween(durationMillis = PAGE_TRANSITION_DURATION_MILLIS),
+                ) togetherWith slideOutHorizontally(
+                    animationSpec = tween(durationMillis = PAGE_TRANSITION_DURATION_MILLIS),
+                ) { -it / 5 } + fadeOut(
+                    animationSpec = tween(durationMillis = PAGE_TRANSITION_DURATION_MILLIS),
+                )
             } else {
-                slideInHorizontally { -it / 4 } + fadeIn() togetherWith
-                    slideOutHorizontally { it / 5 } + fadeOut()
+                slideInHorizontally(
+                    animationSpec = tween(durationMillis = PAGE_TRANSITION_DURATION_MILLIS),
+                ) { -it / 4 } + fadeIn(
+                    animationSpec = tween(durationMillis = PAGE_TRANSITION_DURATION_MILLIS),
+                ) togetherWith slideOutHorizontally(
+                    animationSpec = tween(durationMillis = PAGE_TRANSITION_DURATION_MILLIS),
+                ) { it / 5 } + fadeOut(
+                    animationSpec = tween(durationMillis = PAGE_TRANSITION_DURATION_MILLIS),
+                )
             }
         },
     ) { page ->
@@ -423,6 +444,17 @@ fun MeterRoute(
                 onThemeModeChanged = onThemeModeChanged,
                 colorTheme = colorTheme,
                 onColorThemeChanged = onColorThemeChanged,
+                language = language,
+                onLanguageChanged = { selectedLanguage ->
+                    if (selectedLanguage != language) {
+                        activeSheet = null
+                        currentPage = MeterPage.MAIN
+                        scope.launch {
+                            delay(PAGE_TRANSITION_DURATION_MILLIS.toLong())
+                            onLanguageChanged(selectedLanguage)
+                        }
+                    }
+                },
                 liveMeteringEnabled = liveMeteringEnabled,
                 onLiveMeteringEnabledChanged = onLiveMeteringEnabledChanged,
                 guideGridEnabled = guideGridEnabled,
@@ -2411,6 +2443,8 @@ private fun SettingsPage(
     onThemeModeChanged: (AppThemeMode) -> Unit,
     colorTheme: AppColorTheme,
     onColorThemeChanged: (AppColorTheme) -> Unit,
+    language: AppLanguage,
+    onLanguageChanged: (AppLanguage) -> Unit,
     liveMeteringEnabled: Boolean,
     onLiveMeteringEnabledChanged: (Boolean) -> Unit,
     guideGridEnabled: Boolean,
@@ -2578,6 +2612,15 @@ private fun SettingsPage(
                             onThemeSelected = onColorThemeChanged,
                         )
                     }
+                    Text(
+                        text = stringResource(R.string.settings_language_title),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    LanguageChoiceCard(
+                        selectedLanguage = language,
+                        onLanguageSelected = onLanguageChanged,
+                    )
                 }
             }
         }
@@ -2750,6 +2793,92 @@ private fun ReferenceGridType.labelRes(): Int {
         ReferenceGridType.THIRDS -> R.string.reference_grid_type_thirds
         ReferenceGridType.GOLDEN_SPIRAL -> R.string.reference_grid_type_golden_spiral
         ReferenceGridType.DIAGONAL -> R.string.reference_grid_type_diagonal
+    }
+}
+
+@Composable
+private fun LanguageChoiceCard(
+    selectedLanguage: AppLanguage,
+    onLanguageSelected: (AppLanguage) -> Unit,
+) {
+    Surface(
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.settings_language_description),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            Column(
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                AppLanguage.entries.forEach { option ->
+                    LanguageChoiceRow(
+                        label = stringResource(option.labelRes()),
+                        selected = option == selectedLanguage,
+                        onClick = { onLanguageSelected(option) },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LanguageChoiceRow(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        color = if (selected) {
+            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f)
+        } else {
+            Color.Transparent
+        },
+        onClick = onClick,
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            RadioButton(
+                selected = selected,
+                onClick = onClick,
+                colors = RadioButtonDefaults.colors(
+                    selectedColor = MaterialTheme.colorScheme.primary,
+                    unselectedColor = MaterialTheme.colorScheme.outline,
+                ),
+            )
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyLarge,
+                color = if (selected) {
+                    MaterialTheme.colorScheme.onPrimaryContainer
+                } else {
+                    MaterialTheme.colorScheme.onSurface
+                },
+            )
+        }
+    }
+}
+
+private fun AppLanguage.labelRes(): Int {
+    return when (this) {
+        AppLanguage.SYSTEM -> R.string.language_system
+        AppLanguage.CHINESE -> R.string.language_chinese
+        AppLanguage.ENGLISH -> R.string.language_english
     }
 }
 
@@ -4538,6 +4667,7 @@ private fun valuesEqual(
 
 private const val MIN_SHUTTER_SECONDS = 1.0 / 8000.0
 private const val MAX_SHUTTER_SECONDS = 30.0
+private const val PAGE_TRANSITION_DURATION_MILLIS = 220
 private const val PINNED_SUMMARY_VISIBILITY_EPSILON_PX = 1f
 private data class WhiteBalanceBiasUiModel(
     val deltaKelvin: Int,
