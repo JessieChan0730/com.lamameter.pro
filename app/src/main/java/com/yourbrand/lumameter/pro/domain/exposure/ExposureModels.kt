@@ -21,9 +21,10 @@ enum class ViewfinderAspectRatio(
     private val widthUnits: Int,
     private val heightUnits: Int,
 ) {
+    THREE_FOUR("3:4", 3, 4),
+    FOUR_FIVE("4:5", 4, 5),
     SQUARE("1:1", 1, 1),
     FOUR_THREE("4:3", 4, 3),
-    NINE_SIX("9:6", 9, 6),
     SIXTEEN_NINE("16:9", 16, 9),
     ;
 
@@ -34,8 +35,17 @@ enum class ViewfinderAspectRatio(
         val Default = FOUR_THREE
 
         fun fromStorageValue(value: String?): ViewfinderAspectRatio {
+            if (value == LEGACY_NINE_SIX_STORAGE_VALUE) {
+                return FOUR_THREE
+            }
+            if (value == LEGACY_TWO_THREE_STORAGE_VALUE) {
+                return THREE_FOUR
+            }
             return entries.firstOrNull { it.storageValue == value } ?: Default
         }
+
+        private const val LEGACY_NINE_SIX_STORAGE_VALUE = "9:6"
+        private const val LEGACY_TWO_THREE_STORAGE_VALUE = "2:3"
     }
 }
 
