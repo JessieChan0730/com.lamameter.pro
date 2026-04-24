@@ -2133,7 +2133,10 @@ private fun ExposureAdjustmentRow(
                     }
                     TextButton(
                         onClick = onOpenCalibration,
-                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                            horizontal = 10.dp,
+                            vertical = 4.dp
+                        ),
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.Tune,
@@ -2631,6 +2634,7 @@ private fun SettingsPage(
                     }
                     Column(
                         verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.padding(top = 6.dp)
                     ) {
                         Text(
                             text = stringResource(R.string.settings_color_theme_title),
@@ -3683,7 +3687,11 @@ private fun CalibrationPage(
             },
             actions = {
                 TextButton(onClick = {
-                    onImportPresets(presets, activeId, CalibrationImportStrategy.MERGE_KEEP_EXISTING)
+                    onImportPresets(
+                        presets,
+                        activeId,
+                        CalibrationImportStrategy.MERGE_KEEP_EXISTING
+                    )
                     pendingImport = null
                     scope.launch {
                         snackbarHostState.showMeterSnackbar(
@@ -4704,6 +4712,7 @@ private const val MIN_SHUTTER_SECONDS = 1.0 / 8000.0
 private const val MAX_SHUTTER_SECONDS = 30.0
 private const val PAGE_TRANSITION_DURATION_MILLIS = 220
 private const val PINNED_SUMMARY_VISIBILITY_EPSILON_PX = 1f
+
 private data class WhiteBalanceBiasUiModel(
     val deltaKelvin: Int,
     val direction: WhiteBalanceBiasDirection,
