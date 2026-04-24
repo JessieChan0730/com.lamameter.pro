@@ -11,6 +11,14 @@ enum class AppLanguage(
     ENGLISH("en", Locale.ENGLISH),
     ;
 
+    fun displayLabel(systemLabel: String): String {
+        return when (this) {
+            SYSTEM -> systemLabel
+            CHINESE -> "\u4E2D\u6587"
+            ENGLISH -> "English"
+        }
+    }
+
     companion object {
         fun fromStorageValue(value: String?): AppLanguage {
             return entries.firstOrNull { it.storageValue == value } ?: SYSTEM

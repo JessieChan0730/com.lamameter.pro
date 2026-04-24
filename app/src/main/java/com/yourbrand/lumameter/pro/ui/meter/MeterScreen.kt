@@ -26,6 +26,7 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -101,8 +102,6 @@ import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderColors
 import androidx.compose.material3.SliderDefaults
@@ -254,7 +253,6 @@ fun MeterRoute(
     ),
 ) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val permissionRequiredMessage = stringResource(R.string.camera_permission_required)
     var hasCameraPermission by remember { mutableStateOf(context.hasCameraPermission()) }
@@ -453,12 +451,7 @@ fun MeterRoute(
                 language = language,
                 onLanguageChanged = { selectedLanguage ->
                     if (selectedLanguage != language) {
-                        activeSheet = null
-                        currentPage = MeterPage.MAIN
-                        scope.launch {
-                            delay(PAGE_TRANSITION_DURATION_MILLIS.toLong())
-                            onLanguageChanged(selectedLanguage)
-                        }
+                        onLanguageChanged(selectedLanguage)
                     }
                 },
                 liveMeteringEnabled = liveMeteringEnabled,
@@ -2466,7 +2459,9 @@ private fun SettingsPage(
     onBack: () -> Unit,
 ) {
     val scrollState = rememberScrollState()
+    var showDisplayModes by rememberSaveable { mutableStateOf(false) }
     var showColorThemes by rememberSaveable { mutableStateOf(false) }
+    var showLanguages by rememberSaveable { mutableStateOf(false) }
     val darkThemePreview = themeMode.resolveDarkTheme(isSystemInDarkTheme())
     val availableReferenceGridTypes = remember(viewfinderAspectRatio) {
         viewfinderAspectRatio.supportedReferenceGridTypes()
@@ -2583,60 +2578,79 @@ private fun SettingsPage(
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    Text(
-                        text = stringResource(R.string.settings_display_mode_title),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-
-                    ThemeOptionCard(
-                        title = stringResource(R.string.theme_system),
-                        subtitle = stringResource(R.string.theme_system_description),
-                        icon = Icons.Rounded.BrightnessAuto,
-                        selected = themeMode == AppThemeMode.SYSTEM,
-                        onClick = { onThemeModeChanged(AppThemeMode.SYSTEM) },
-                    )
-                    ThemeOptionCard(
-                        title = stringResource(R.string.theme_light),
-                        subtitle = stringResource(R.string.theme_light_description),
-                        icon = Icons.Rounded.Brightness6,
-                        selected = themeMode == AppThemeMode.LIGHT,
-                        onClick = { onThemeModeChanged(AppThemeMode.LIGHT) },
-                    )
-                    ThemeOptionCard(
-                        title = stringResource(R.string.theme_dark),
-                        subtitle = stringResource(R.string.theme_dark_description),
-                        icon = Icons.Rounded.Brightness4,
-                        selected = themeMode == AppThemeMode.DARK,
-                        onClick = { onThemeModeChanged(AppThemeMode.DARK) },
-                    )
-                    Text(
-                        text = stringResource(R.string.settings_color_theme_title),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                    ThemePaletteDisclosureCard(
-                        selectedTheme = colorTheme,
-                        darkThemePreview = darkThemePreview,
-                        expanded = showColorThemes,
-                        onClick = { showColorThemes = !showColorThemes },
-                    )
-                    AnimatedVisibility(visible = showColorThemes) {
-                        ThemePaletteSelector(
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        SettingsDisclosureCard(
+                            title = stringResource(R.string.settings_display_mode_title),
+                            expanded = showDisplayModes,
+                            onClick = { showDisplayModes = !showDisplayModes },
+                        )
+                        AnimatedVisibility(visible = showDisplayModes) {
+                            Column(
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                ThemeOptionCard(
+                                    title = stringResource(R.string.theme_system),
+                                    subtitle = stringResource(R.string.theme_system_description),
+                                    icon = Icons.Rounded.BrightnessAuto,
+                                    selected = themeMode == AppThemeMode.SYSTEM,
+                                    onClick = { onThemeModeChanged(AppThemeMode.SYSTEM) },
+                                )
+                                ThemeOptionCard(
+                                    title = stringResource(R.string.theme_light),
+                                    subtitle = stringResource(R.string.theme_light_description),
+                                    icon = Icons.Rounded.Brightness6,
+                                    selected = themeMode == AppThemeMode.LIGHT,
+                                    onClick = { onThemeModeChanged(AppThemeMode.LIGHT) },
+                                )
+                                ThemeOptionCard(
+                                    title = stringResource(R.string.theme_dark),
+                                    subtitle = stringResource(R.string.theme_dark_description),
+                                    icon = Icons.Rounded.Brightness4,
+                                    selected = themeMode == AppThemeMode.DARK,
+                                    onClick = { onThemeModeChanged(AppThemeMode.DARK) },
+                                )
+                            }
+                        }
+                    }
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        SettingsDisclosureCard(
+                            title = stringResource(R.string.settings_language_title),
+                            expanded = showLanguages,
+                            onClick = { showLanguages = !showLanguages },
+                        )
+                        AnimatedVisibility(visible = showLanguages) {
+                            LanguageChoiceCard(
+                                selectedLanguage = language,
+                                onLanguageSelected = onLanguageChanged,
+                            )
+                        }
+                    }
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text(
+                            text = stringResource(R.string.settings_color_theme_title),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        ThemePaletteDisclosureCard(
                             selectedTheme = colorTheme,
                             darkThemePreview = darkThemePreview,
-                            onThemeSelected = onColorThemeChanged,
+                            expanded = showColorThemes,
+                            onClick = { showColorThemes = !showColorThemes },
                         )
+                        AnimatedVisibility(visible = showColorThemes) {
+                            ThemePaletteSelector(
+                                selectedTheme = colorTheme,
+                                darkThemePreview = darkThemePreview,
+                                onThemeSelected = onColorThemeChanged,
+                            )
+                        }
                     }
-                    Text(
-                        text = stringResource(R.string.settings_language_title),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                    LanguageChoiceCard(
-                        selectedLanguage = language,
-                        onLanguageSelected = onLanguageChanged,
-                    )
                 }
             }
         }
@@ -2814,88 +2828,66 @@ private fun ReferenceGridType.labelRes(): Int {
 }
 
 @Composable
-private fun LanguageChoiceCard(
-    selectedLanguage: AppLanguage,
-    onLanguageSelected: (AppLanguage) -> Unit,
+private fun SettingsDisclosureCard(
+    title: String,
+    expanded: Boolean,
+    onClick: () -> Unit,
 ) {
-    Surface(
-        shape = RoundedCornerShape(18.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Text(
-                text = stringResource(R.string.settings_language_description),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+    val arrowRotation by animateFloatAsState(
+        targetValue = if (expanded) 180f else 0f,
+        label = "${title}_arrow",
+    )
+    val interactionSource = remember { MutableInteractionSource() }
 
-            Column(
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                AppLanguage.entries.forEach { option ->
-                    LanguageChoiceRow(
-                        label = stringResource(option.labelRes()),
-                        selected = option == selectedLanguage,
-                        onClick = { onLanguageSelected(option) },
-                    )
-                }
-            }
-        }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick,
+            )
+            .padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            modifier = Modifier.weight(1f),
+            text = title,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+
+        Icon(
+            modifier = Modifier.graphicsLayer {
+                rotationZ = arrowRotation
+            },
+            imageVector = Icons.Rounded.ArrowDropDown,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
 @Composable
-private fun LanguageChoiceRow(
-    label: String,
-    selected: Boolean,
-    onClick: () -> Unit,
+private fun LanguageChoiceCard(
+    selectedLanguage: AppLanguage,
+    onLanguageSelected: (AppLanguage) -> Unit,
 ) {
-    Surface(
+    val systemLabel = stringResource(R.string.language_system)
+
+    Column(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
-        color = if (selected) {
-            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f)
-        } else {
-            Color.Transparent
-        },
-        onClick = onClick,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            RadioButton(
-                selected = selected,
-                onClick = onClick,
-                colors = RadioButtonDefaults.colors(
-                    selectedColor = MaterialTheme.colorScheme.primary,
-                    unselectedColor = MaterialTheme.colorScheme.outline,
-                ),
-            )
-            Text(
-                text = label,
-                style = MaterialTheme.typography.bodyLarge,
-                color = if (selected) {
-                    MaterialTheme.colorScheme.onPrimaryContainer
-                } else {
-                    MaterialTheme.colorScheme.onSurface
-                },
+        AppLanguage.entries.forEach { option ->
+            LanguageOptionCard(
+                title = option.displayLabel(systemLabel),
+                selected = option == selectedLanguage,
+                onClick = { onLanguageSelected(option) },
             )
         }
-    }
-}
-
-private fun AppLanguage.labelRes(): Int {
-    return when (this) {
-        AppLanguage.SYSTEM -> R.string.language_system
-        AppLanguage.CHINESE -> R.string.language_chinese
-        AppLanguage.ENGLISH -> R.string.language_english
     }
 }
 
@@ -2904,6 +2896,36 @@ private fun ThemeOptionCard(
     title: String,
     subtitle: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    SettingsOptionCard(
+        title = title,
+        subtitle = subtitle,
+        icon = icon,
+        selected = selected,
+        onClick = onClick,
+    )
+}
+
+@Composable
+private fun LanguageOptionCard(
+    title: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    SettingsOptionCard(
+        title = title,
+        selected = selected,
+        onClick = onClick,
+    )
+}
+
+@Composable
+private fun SettingsOptionCard(
+    title: String,
+    subtitle: String? = null,
+    icon: ImageVector? = null,
     selected: Boolean,
     onClick: () -> Unit,
 ) {
@@ -2923,29 +2945,33 @@ private fun ThemeOptionCard(
             horizontalArrangement = Arrangement.spacedBy(14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Surface(
-                shape = CircleShape,
-                color = if (selected) {
-                    MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
-                } else {
-                    MaterialTheme.colorScheme.background
-                },
-            ) {
-                Icon(
-                    modifier = Modifier.padding(12.dp),
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = if (selected) {
-                        MaterialTheme.colorScheme.onPrimaryContainer
+            if (icon != null) {
+                Surface(
+                    shape = CircleShape,
+                    color = if (selected) {
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
                     } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
+                        MaterialTheme.colorScheme.background
                     },
-                )
+                ) {
+                    Icon(
+                        modifier = Modifier.padding(12.dp),
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = if (selected) {
+                            MaterialTheme.colorScheme.onPrimaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                    )
+                }
             }
 
             Column(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
+                verticalArrangement = Arrangement.spacedBy(
+                    if (subtitle != null) 4.dp else 0.dp,
+                ),
             ) {
                 Text(
                     text = title,
@@ -2957,15 +2983,17 @@ private fun ThemeOptionCard(
                         MaterialTheme.colorScheme.onSurface
                     },
                 )
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = if (selected) {
-                        MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.82f)
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    },
-                )
+                subtitle?.let { supportingText ->
+                    Text(
+                        text = supportingText,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = if (selected) {
+                            MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.82f)
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                    )
+                }
             }
 
             if (selected) {
@@ -3031,16 +3059,6 @@ private fun ThemePaletteDisclosureCard(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                Text(
-                    text = stringResource(R.string.settings_color_theme_title),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = if (expanded) {
-                        MaterialTheme.colorScheme.onPrimaryContainer
-                    } else {
-                        MaterialTheme.colorScheme.onSurface
-                    },
-                )
                 Text(
                     text = if (expanded) {
                         stringResource(R.string.settings_color_theme_description)
