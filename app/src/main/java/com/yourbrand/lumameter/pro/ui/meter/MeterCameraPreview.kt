@@ -507,7 +507,6 @@ private fun offsetPoints(
 
 private fun ViewfinderAspectRatio.prefersHorizontalGoldenSpiral(): Boolean {
     return when (this) {
-        ViewfinderAspectRatio.NINE_SIX,
         ViewfinderAspectRatio.SIXTEEN_NINE -> true
 
         else -> false
