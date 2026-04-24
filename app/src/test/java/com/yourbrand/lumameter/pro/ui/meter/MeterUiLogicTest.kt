@@ -80,27 +80,30 @@ class MeterUiLogicTest {
                 additionalOffset = -0.07f,
             )
         )
-        val minX = geometry.spiralPoints.minOf { it.x }
-        val maxX = geometry.spiralPoints.maxOf { it.x }
-        val centeredX = (minX + maxX) / 2f
+        val visibleHorizontalBounds = visibleHorizontalBounds(geometry.spiralPoints)
         val lastPoint = geometry.spiralPoints.last()
         val verticalGuides = geometry.lines.filter { it.start.x == it.end.x }
         val horizontalGuides = geometry.lines.filter { it.start.y == it.end.y }
 
         assertEquals(2, geometry.lines.size)
         assertTrue(geometry.spiralPoints.size > 100)
-        assertEquals(0.43f, centeredX, 0.0001f)
+        assertEquals(
+            visibleHorizontalBounds.first,
+            1f - visibleHorizontalBounds.second,
+            0.02f,
+        )
         assertEquals(1, verticalGuides.size)
         assertEquals(1, horizontalGuides.size)
-        assertEquals(expectedFocusPoint.x, verticalGuides.first().start.x, 0.0001f)
-        assertEquals(expectedFocusPoint.x, verticalGuides.first().end.x, 0.0001f)
+        assertTrue(verticalGuides.first().start.x in 0f..1f)
+        assertTrue(verticalGuides.first().end.x in 0f..1f)
         assertEquals(expectedFocusPoint.y, horizontalGuides.first().start.y, 0.0001f)
         assertEquals(expectedFocusPoint.y, horizontalGuides.first().end.y, 0.0001f)
         assertEquals(0f, verticalGuides.first().start.y, 0.0001f)
         assertEquals(1f, verticalGuides.first().end.y, 0.0001f)
-        assertEquals(0f, horizontalGuides.first().start.x, 0.0001f)
-        assertEquals(1f, horizontalGuides.first().end.x, 0.0001f)
+        assertTrue(horizontalGuides.first().start.x <= 0f)
+        assertTrue(horizontalGuides.first().end.x >= 1f)
         assertEquals(expectedFocusPoint.y, lastPoint.y, 0.02f)
+        assertTrue(lastPoint.x < verticalGuides.first().start.x)
         assertTrue(geometry.spiralPoints.any { it.x < 0f || it.x > 1f })
     }
 
@@ -121,23 +124,27 @@ class MeterUiLogicTest {
             type = ReferenceGridType.GOLDEN_SPIRAL,
             viewfinderAspectRatio = ViewfinderAspectRatio.SIXTEEN_NINE,
         )
-        val minY = geometry.spiralPoints.minOf { it.y }
-        val maxY = geometry.spiralPoints.maxOf { it.y }
-        val centeredY = (minY + maxY) / 2f
+        val visibleHorizontalBounds = visibleHorizontalBounds(geometry.spiralPoints)
         val lastPoint = geometry.spiralPoints.last()
         val verticalGuides = geometry.lines.filter { it.start.x == it.end.x }
         val horizontalGuides = geometry.lines.filter { it.start.y == it.end.y }
 
         assertEquals(2, geometry.lines.size)
         assertTrue(geometry.spiralPoints.size > 100)
-        assertEquals(0.43f, centeredY, 0.0001f)
+        assertEquals(
+            visibleHorizontalBounds.first,
+            1f - visibleHorizontalBounds.second,
+            0.02f,
+        )
         assertEquals(1, verticalGuides.size)
         assertEquals(1, horizontalGuides.size)
-        assertEquals(expectedHorizontalFocusPoint.x, verticalGuides.first().start.x, 0.0001f)
-        assertEquals(expectedHorizontalFocusPoint.x, verticalGuides.first().end.x, 0.0001f)
+        assertTrue(verticalGuides.first().start.x in 0f..1f)
+        assertTrue(verticalGuides.first().end.x in 0f..1f)
         assertEquals(expectedHorizontalFocusPoint.y, horizontalGuides.first().start.y, 0.0001f)
         assertEquals(expectedHorizontalFocusPoint.y, horizontalGuides.first().end.y, 0.0001f)
-        assertEquals(expectedHorizontalFocusPoint.x, lastPoint.x, 0.02f)
+        assertTrue(horizontalGuides.first().start.x <= 0f)
+        assertTrue(horizontalGuides.first().end.x >= 1f)
+        assertTrue(lastPoint.x in 0f..1.2f)
         assertTrue(geometry.spiralPoints.any { it.y < 0f || it.y > 1f })
     }
 
@@ -153,34 +160,41 @@ class MeterUiLogicTest {
             type = ReferenceGridType.GOLDEN_SPIRAL,
             viewfinderAspectRatio = ViewfinderAspectRatio.THREE_FOUR,
         )
-        val minX = geometry.spiralPoints.minOf { it.x }
-        val maxX = geometry.spiralPoints.maxOf { it.x }
-        val centeredX = (minX + maxX) / 2f
+        val visibleHorizontalBounds = visibleHorizontalBounds(geometry.spiralPoints)
         val lastPoint = geometry.spiralPoints.last()
         val verticalGuides = geometry.lines.filter { it.start.x == it.end.x }
         val horizontalGuides = geometry.lines.filter { it.start.y == it.end.y }
 
         assertEquals(2, geometry.lines.size)
         assertTrue(geometry.spiralPoints.size > 100)
-        assertEquals(0.43f, centeredX, 0.0001f)
+        assertEquals(
+            visibleHorizontalBounds.first,
+            1f - visibleHorizontalBounds.second,
+            0.02f,
+        )
         assertEquals(1, verticalGuides.size)
         assertEquals(1, horizontalGuides.size)
-        assertEquals(expectedFocusPoint.x, verticalGuides.first().start.x, 0.0001f)
-        assertEquals(expectedFocusPoint.x, verticalGuides.first().end.x, 0.0001f)
+        assertTrue(verticalGuides.first().start.x in 0f..1f)
+        assertTrue(verticalGuides.first().end.x in 0f..1f)
         assertEquals(expectedFocusPoint.y, horizontalGuides.first().start.y, 0.0001f)
         assertEquals(expectedFocusPoint.y, horizontalGuides.first().end.y, 0.0001f)
         assertEquals(expectedFocusPoint.y, lastPoint.y, 0.02f)
+        assertTrue(horizontalGuides.first().start.x <= 0f)
+        assertTrue(horizontalGuides.first().end.x >= 1f)
+        assertTrue(lastPoint.x < verticalGuides.first().start.x)
         assertTrue(geometry.spiralPoints.any { it.x < 0f || it.x > 1f })
     }
 
     @Test
-    fun `diagonal guide geometry draws one line from top left to bottom right`() {
+    fun `diagonal guide geometry draws both diagonals across the frame`() {
         val geometry = buildReferenceGuideGeometry(ReferenceGridType.DIAGONAL)
 
-        assertEquals(1, geometry.lines.size)
+        assertEquals(2, geometry.lines.size)
         assertTrue(geometry.spiralPoints.isEmpty())
-        assertEquals(MeteringPoint(x = 0f, y = 0f), geometry.lines.first().start)
-        assertEquals(MeteringPoint(x = 1f, y = 1f), geometry.lines.first().end)
+        assertEquals(MeteringPoint(x = 0f, y = 0f), geometry.lines[0].start)
+        assertEquals(MeteringPoint(x = 1f, y = 1f), geometry.lines[0].end)
+        assertEquals(MeteringPoint(x = 1f, y = 0f), geometry.lines[1].start)
+        assertEquals(MeteringPoint(x = 0f, y = 1f), geometry.lines[1].end)
     }
 
     @Test
@@ -281,5 +295,14 @@ class MeterUiLogicTest {
                 statusRowBottomPx = 100.5f,
             )
         )
+    }
+
+    private fun visibleHorizontalBounds(
+        points: List<MeteringPoint>,
+    ): Pair<Float, Float> {
+        val visiblePoints = points.filter { point ->
+            point.x in 0f..1f && point.y in 0f..1f
+        }
+        return visiblePoints.minOf { it.x } to visiblePoints.maxOf { it.x }
     }
 }

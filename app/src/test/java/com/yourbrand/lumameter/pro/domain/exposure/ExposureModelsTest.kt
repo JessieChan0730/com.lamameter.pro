@@ -1,6 +1,8 @@
 package com.yourbrand.lumameter.pro.domain.exposure
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ExposureModelsTest {
@@ -24,6 +26,69 @@ class ExposureModelsTest {
         assertEquals(ViewfinderAspectRatio.FOUR_THREE, ViewfinderAspectRatio.fromStorageValue("9:6"))
         assertEquals(ViewfinderAspectRatio.THREE_FOUR, ViewfinderAspectRatio.fromStorageValue("2:3"))
         assertEquals(ViewfinderAspectRatio.THREE_FOUR, ViewfinderAspectRatio.fromStorageValue("3:4"))
+    }
+
+    @Test
+    fun `four by three and sixteen by nine viewfinders exclude golden spiral guides`() {
+        assertEquals(
+            listOf(ReferenceGridType.THIRDS, ReferenceGridType.DIAGONAL),
+            ViewfinderAspectRatio.FOUR_THREE.supportedReferenceGridTypes(),
+        )
+        assertEquals(
+            listOf(ReferenceGridType.THIRDS, ReferenceGridType.DIAGONAL),
+            ViewfinderAspectRatio.SIXTEEN_NINE.supportedReferenceGridTypes(),
+        )
+    }
+
+    @Test
+    fun `portrait and square viewfinders keep golden spiral guides available`() {
+        assertTrue(
+            ReferenceGridType.GOLDEN_SPIRAL in
+                ViewfinderAspectRatio.THREE_FOUR.supportedReferenceGridTypes(),
+        )
+        assertTrue(
+            ReferenceGridType.GOLDEN_SPIRAL in
+                ViewfinderAspectRatio.SQUARE.supportedReferenceGridTypes(),
+        )
+    }
+
+    @Test
+    fun `unsupported golden spiral guides fall back to thirds for wide viewfinders`() {
+        assertEquals(
+            ReferenceGridType.THIRDS,
+            ReferenceGridType.normalizeForViewfinder(
+                referenceGridType = ReferenceGridType.GOLDEN_SPIRAL,
+                viewfinderAspectRatio = ViewfinderAspectRatio.FOUR_THREE,
+            ),
+        )
+        assertEquals(
+            ReferenceGridType.THIRDS,
+            ReferenceGridType.normalizeForViewfinder(
+                referenceGridType = ReferenceGridType.GOLDEN_SPIRAL,
+                viewfinderAspectRatio = ViewfinderAspectRatio.SIXTEEN_NINE,
+            ),
+        )
+    }
+
+    @Test
+    fun `supported reference guides remain unchanged when normalized`() {
+        assertEquals(
+            ReferenceGridType.DIAGONAL,
+            ReferenceGridType.normalizeForViewfinder(
+                referenceGridType = ReferenceGridType.DIAGONAL,
+                viewfinderAspectRatio = ViewfinderAspectRatio.FOUR_THREE,
+            ),
+        )
+        assertEquals(
+            ReferenceGridType.GOLDEN_SPIRAL,
+            ReferenceGridType.normalizeForViewfinder(
+                referenceGridType = ReferenceGridType.GOLDEN_SPIRAL,
+                viewfinderAspectRatio = ViewfinderAspectRatio.THREE_FOUR,
+            ),
+        )
+        assertFalse(
+            ReferenceGridType.GOLDEN_SPIRAL.isSupportedFor(ViewfinderAspectRatio.SIXTEEN_NINE),
+        )
     }
 
     @Test

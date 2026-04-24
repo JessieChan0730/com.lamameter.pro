@@ -77,14 +77,27 @@ class MainActivity : ComponentActivity() {
                     preferences.getBoolean(KEY_GUIDE_GRID_ENABLED, false),
                 )
             }
-            var referenceGridType by rememberSaveable {
+            var viewfinderAspectRatio by rememberSaveable {
                 mutableStateOf(
-                    ReferenceGridType.fromStorageValue(
+                    ViewfinderAspectRatio.fromStorageValue(
                         preferences.getString(
-                            KEY_REFERENCE_GRID_TYPE,
-                            ReferenceGridType.Default.storageValue,
+                            KEY_VIEWFINDER_ASPECT_RATIO,
+                            ViewfinderAspectRatio.Default.storageValue,
                         ),
                     )
+                )
+            }
+            var referenceGridType by rememberSaveable {
+                mutableStateOf(
+                    ReferenceGridType.normalizeForViewfinder(
+                        referenceGridType = ReferenceGridType.fromStorageValue(
+                            preferences.getString(
+                                KEY_REFERENCE_GRID_TYPE,
+                                ReferenceGridType.Default.storageValue,
+                            ),
+                        ),
+                        viewfinderAspectRatio = viewfinderAspectRatio,
+                    ),
                 )
             }
             var histogramEnabled by rememberSaveable {
@@ -95,16 +108,6 @@ class MainActivity : ComponentActivity() {
             var levelIndicatorEnabled by rememberSaveable {
                 mutableStateOf(
                     preferences.getBoolean(KEY_LEVEL_INDICATOR_ENABLED, false),
-                )
-            }
-            var viewfinderAspectRatio by rememberSaveable {
-                mutableStateOf(
-                    ViewfinderAspectRatio.fromStorageValue(
-                        preferences.getString(
-                            KEY_VIEWFINDER_ASPECT_RATIO,
-                            ViewfinderAspectRatio.Default.storageValue,
-                        ),
-                    )
                 )
             }
 
@@ -227,13 +230,24 @@ class MainActivity : ComponentActivity() {
                     guideGridEnabled = guideGridEnabled,
                     onGuideGridEnabledChanged = { guideGridEnabled = it },
                     referenceGridType = referenceGridType,
-                    onReferenceGridTypeChanged = { referenceGridType = it },
+                    onReferenceGridTypeChanged = { selectedType ->
+                        referenceGridType = ReferenceGridType.normalizeForViewfinder(
+                            referenceGridType = selectedType,
+                            viewfinderAspectRatio = viewfinderAspectRatio,
+                        )
+                    },
                     histogramEnabled = histogramEnabled,
                     onHistogramEnabledChanged = { histogramEnabled = it },
                     levelIndicatorEnabled = levelIndicatorEnabled,
                     onLevelIndicatorEnabledChanged = { levelIndicatorEnabled = it },
                     viewfinderAspectRatio = viewfinderAspectRatio,
-                    onViewfinderAspectRatioChanged = { viewfinderAspectRatio = it },
+                    onViewfinderAspectRatioChanged = { selectedAspectRatio ->
+                        viewfinderAspectRatio = selectedAspectRatio
+                        referenceGridType = ReferenceGridType.normalizeForViewfinder(
+                            referenceGridType = referenceGridType,
+                            viewfinderAspectRatio = selectedAspectRatio,
+                        )
+                    },
                     initialSettings = initialSettings,
                     onSettingsChanged = { settings ->
                         preferences.edit()
