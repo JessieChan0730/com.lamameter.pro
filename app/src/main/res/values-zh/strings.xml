@@ -78,6 +78,11 @@
     <string name="theme_light_description">明亮中性色界面，配合暖黄色强调。</string>
     <string name="theme_dark">夜间</string>
     <string name="theme_dark_description">低眩光深色界面，风格贴近参考测光设计。</string>
+    <string name="settings_language_title">语言</string>
+    <string name="settings_language_description">选择应用显示语言，或继续跟随系统语言。</string>
+    <string name="language_system">跟随系统</string>
+    <string name="language_chinese">中文</string>
+    <string name="language_english">英文</string>
     <string name="settings_color_theme_title">主题配色</string>
     <string name="settings_color_theme_description">选择一套配色方案，立即生效，并在重启应用后继续保留。</string>
     <string name="settings_color_theme_current">当前配色：%1$s</string>

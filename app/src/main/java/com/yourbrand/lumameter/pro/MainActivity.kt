@@ -1,5 +1,7 @@
 package com.yourbrand.lumameter.pro
 
+import android.content.Context
+import android.content.res.Configuration
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -16,14 +18,24 @@ import com.yourbrand.lumameter.pro.domain.exposure.ExposureMode
 import com.yourbrand.lumameter.pro.domain.exposure.MeteringMode
 import com.yourbrand.lumameter.pro.domain.exposure.ReferenceGridType
 import com.yourbrand.lumameter.pro.domain.exposure.ViewfinderAspectRatio
+import com.yourbrand.lumameter.pro.ui.locale.AppLanguage
 import com.yourbrand.lumameter.pro.ui.meter.MeterRoute
 import com.yourbrand.lumameter.pro.ui.theme.AppColorTheme
 import com.yourbrand.lumameter.pro.ui.theme.AppThemeMode
 import com.yourbrand.lumameter.pro.ui.theme.LumaMeterTheme
 import com.yourbrand.lumameter.pro.viewmodel.MeterDefaults
 import com.yourbrand.lumameter.pro.viewmodel.PersistedMeterSettings
+import java.util.Locale
 
 class MainActivity : ComponentActivity() {
+    override fun attachBaseContext(newBase: Context) {
+        val preferences = newBase.getSharedPreferences(THEME_PREFS_NAME, MODE_PRIVATE)
+        val language = AppLanguage.fromStorageValue(
+            preferences.getString(KEY_LANGUAGE, AppLanguage.SYSTEM.storageValue),
+        )
+        super.attachBaseContext(newBase.localized(language))
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -45,6 +57,13 @@ class MainActivity : ComponentActivity() {
                             KEY_COLOR_THEME,
                             AppColorTheme.CLASSIC_AMBER.storageValue,
                         ),
+                    )
+                )
+            }
+            var language by rememberSaveable {
+                mutableStateOf(
+                    AppLanguage.fromStorageValue(
+                        preferences.getString(KEY_LANGUAGE, AppLanguage.SYSTEM.storageValue),
                     )
                 )
             }
@@ -191,6 +210,18 @@ class MainActivity : ComponentActivity() {
                     onThemeModeChanged = { themeMode = it },
                     colorTheme = colorTheme,
                     onColorThemeChanged = { colorTheme = it },
+                    language = language,
+                    onLanguageChanged = { selectedLanguage ->
+                        if (selectedLanguage != language) {
+                            language = selectedLanguage
+                            preferences.edit()
+                                .putString(KEY_LANGUAGE, selectedLanguage.storageValue)
+                                .commit()
+                            if (!isFinishing && !isDestroyed) {
+                                recreate()
+                            }
+                        }
+                    },
                     liveMeteringEnabled = liveMeteringEnabled,
                     onLiveMeteringEnabledChanged = { liveMeteringEnabled = it },
                     guideGridEnabled = guideGridEnabled,
@@ -231,6 +262,7 @@ class MainActivity : ComponentActivity() {
         const val THEME_PREFS_NAME = "luma_meter_prefs"
         const val KEY_THEME_MODE = "theme_mode"
         const val KEY_COLOR_THEME = "color_theme"
+        const val KEY_LANGUAGE = "language"
         const val KEY_LIVE_METERING_ENABLED = "live_metering_enabled"
         const val KEY_GUIDE_GRID_ENABLED = "guide_grid_enabled"
         const val KEY_REFERENCE_GRID_TYPE = "reference_grid_type"
@@ -288,4 +320,12 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+}
+
+private fun Context.localized(language: AppLanguage): Context {
+    val locale = language.locale ?: return this
+    Locale.setDefault(locale)
+    val configuration = Configuration(resources.configuration)
+    configuration.setLocale(locale)
+    return createConfigurationContext(configuration)
 }

@@ -78,6 +78,11 @@
     <string name="theme_light_description">Bright neutral interface with warm yellow highlights.</string>
     <string name="theme_dark">Dark</string>
     <string name="theme_dark_description">Low-glare dark interface inspired by the reference meter UI.</string>
+    <string name="settings_language_title">Language</string>
+    <string name="settings_language_description">Choose the app display language, or keep following the device language.</string>
+    <string name="language_system">Follow system</string>
+    <string name="language_chinese">Chinese</string>
+    <string name="language_english">English</string>
     <string name="settings_color_theme_title">Theme palette</string>
     <string name="settings_color_theme_description">Pick a color palette. It applies immediately and stays saved after restart.</string>
     <string name="settings_color_theme_current">Current palette: %1$s</string>
